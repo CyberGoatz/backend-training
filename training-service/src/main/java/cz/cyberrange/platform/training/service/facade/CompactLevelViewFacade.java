@@ -1,12 +1,12 @@
 package cz.cyberrange.platform.training.service.facade;
 
-import cz.cyberrange.platform.events.AbstractAuditPOJO;
-import cz.cyberrange.platform.events.trainings.TrainingRunEnded;
-import cz.cyberrange.platform.events.trainings.TrainingRunStarted;
 import cz.cyberrange.platform.training.api.dto.UserRefDTO;
 import cz.cyberrange.platform.training.api.dto.visualization.compact.CompactLevelViewDTO;
 import cz.cyberrange.platform.training.api.dto.visualization.compact.CompactLevelViewEventDTO;
 import cz.cyberrange.platform.training.api.dto.visualization.compact.CompactLevelViewUserDTO;
+import cz.cyberrange.platform.training.opensearch.model.AbstractAuditPOJO;
+import cz.cyberrange.platform.training.opensearch.model.TrainingRunEnded;
+import cz.cyberrange.platform.training.opensearch.model.TrainingRunStarted;
 import cz.cyberrange.platform.training.persistence.model.TrainingInstance;
 import cz.cyberrange.platform.training.persistence.model.TrainingRun;
 import cz.cyberrange.platform.training.service.annotations.transactions.TransactionalRO;
@@ -14,7 +14,7 @@ import cz.cyberrange.platform.training.service.services.TrainingDefinitionServic
 import cz.cyberrange.platform.training.service.services.TrainingInstanceService;
 import cz.cyberrange.platform.training.service.services.TrainingRunService;
 import cz.cyberrange.platform.training.service.services.UserService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -33,19 +33,19 @@ public class CompactLevelViewFacade {
     private final TrainingInstanceService trainingInstanceService;
     private final TrainingRunService trainingRunService;
     private final UserService userService;
-    private final ElasticsearchApiService elasticsearchApiService;
+    private final OpenSearchApiService opensearchApiService;
 
 
     public CompactLevelViewFacade(TrainingDefinitionService trainingDefinitionService,
                                   TrainingInstanceService trainingInstanceService,
                                   TrainingRunService trainingRunService,
                                   UserService userService,
-                                  ElasticsearchApiService elasticsearchApiService) {
+                                  OpenSearchApiService opensearchApiService) {
         this.trainingDefinitionService = trainingDefinitionService;
         this.trainingInstanceService = trainingInstanceService;
         this.trainingRunService = trainingRunService;
         this.userService = userService;
-        this.elasticsearchApiService = elasticsearchApiService;
+        this.opensearchApiService = opensearchApiService;
     }
 
     @PreAuthorize("hasAuthority(T(cz.cyberrange.platform.training.service.enums.RoleTypeSecurity).ROLE_TRAINING_ADMINISTRATOR)" +
@@ -59,7 +59,7 @@ public class CompactLevelViewFacade {
         compactLevelViewDTO.setTitle(title);
         TrainingInstance instance = trainingInstanceService.findById(instanceId);
         Set<TrainingRun> trainingRuns = trainingRunService.findAllByTrainingInstanceId(instanceId);
-        Map<Long, List<AbstractAuditPOJO>> levelEventsByUserId = elasticsearchApiService.getEventsOfTrainingInstanceAndLevelAggregatedByUsers(instanceId, levelId);
+        Map<Long, List<AbstractAuditPOJO>> levelEventsByUserId = opensearchApiService.getEventsOfTrainingInstanceAndLevelAggregatedByUsers(instanceId, levelId);
         Map<Long, UserRefDTO> usersByIds = userService.getUsersRefDTOByGivenUserIds(new ArrayList<>(levelEventsByUserId.keySet())).stream()
                 .collect(Collectors.toMap(UserRefDTO::getUserRefId, Function.identity()));
 
@@ -103,8 +103,8 @@ public class CompactLevelViewFacade {
         Long from = userLevelEvents.get(0).getTimestamp();
         Long to = userLevelEvents.get(userLevelEvents.size() - 1).getTimestamp();
         if(instance.isLocalEnvironment()) {
-            return elasticsearchApiService.findAllConsoleCommandsByAccessTokenAndUserIdAndTimeRange(instance.getAccessToken(), run.getParticipantRef().getUserRefId(), from, to);
+            return opensearchApiService.findAllConsoleCommandsByAccessTokenAndUserIdAndTimeRange(instance.getAccessToken(), run.getParticipantRef().getUserRefId(), from, to);
         }
-        return elasticsearchApiService.findAllConsoleCommandsBySandboxAndTimeRange(run.getSandboxInstanceRefId(), from, to);
+        return opensearchApiService.findAllConsoleCommandsBySandboxAndTimeRange(run.getSandboxInstanceRefId(), from, to);
     }
 }

@@ -11,7 +11,7 @@ import cz.cyberrange.platform.training.service.services.SecurityService;
 import cz.cyberrange.platform.training.service.services.TrainingInstanceService;
 import cz.cyberrange.platform.training.service.services.TrainingRunService;
 import cz.cyberrange.platform.training.service.services.UserService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import cz.cyberrange.platform.training.service.services.api.TrainingFeedbackApiService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,10 +58,10 @@ class CommandVisualizationFacadeTest {
     @MockBean
     private TrainingRunMapper trainingRunMapper;
     @MockBean
-    private ElasticsearchApiService elasticsearchApiService;
+    private OpenSearchApiService opensearchApiService;
 
 
-    private List<Map<String, Object>> elasticCommands;
+    private List<Map<String, Object>> openSearchCommands;
     private TrainingRun trainingRun;
     private TrainingInstance trainingInstance;
     private List<CommandDTO> expected;
@@ -72,9 +72,9 @@ class CommandVisualizationFacadeTest {
     public void init() {
         MockitoAnnotations.openMocks(this);
         commandVisualizationFacade = new CommandVisualizationFacade(trainingInstanceService, trainingRunService,
-                securityService, userService, trainingFeedbackApiService, trainingRunMapper, elasticsearchApiService, objectMapper);
+                securityService, userService, trainingFeedbackApiService, trainingRunMapper, opensearchApiService, objectMapper);
 
-        elasticCommands = List.of(
+        openSearchCommands = List.of(
                 Map.of("hostname","attacker","ip","10.1.26.23","timestamp_str","2022-07-21T13:16:41.435559Z","sandbox_id","1",
                         "cmd","sudo ls","pool_id","1","wd","/home/user","cmd_type","bash-command","username","user"),
                 Map.of("hostname","attacker","ip","10.1.26.23","timestamp_str","2022-07-21T13:16:42.276428Z","sandbox_id","1",
@@ -126,7 +126,8 @@ class CommandVisualizationFacadeTest {
     @Test
     void getAllCommandsByTrainingRun() {
         given(trainingRunService.findById(anyLong())).willReturn(trainingRun);
-        given(elasticsearchApiService.findAllConsoleCommandsBySandbox(anyString())).willReturn(elasticCommands);
+        given(opensearchApiService.findAllConsoleCommandsBySandbox(anyString())).willReturn(
+            openSearchCommands);
         List<CommandDTO> received = commandVisualizationFacade.getAllCommandsByTrainingRun(anyLong());
         assertEquals(expected.size(), received.size());
         compareCommandDTOLists(expected, received);
@@ -142,7 +143,7 @@ class CommandVisualizationFacadeTest {
     void noCommandsFound() {
         given(trainingRunService.findById(anyLong())).willReturn(trainingRun);
         trainingInstance.setLocalEnvironment(false);
-        given(elasticsearchApiService.findAllConsoleCommandsBySandbox(anyString())).willReturn(new ArrayList<>());
+        given(opensearchApiService.findAllConsoleCommandsBySandbox(anyString())).willReturn(new ArrayList<>());
         List<CommandDTO> received = commandVisualizationFacade.getAllCommandsByTrainingRun(anyLong());
         assertEquals(0, received.size());
     }
@@ -152,7 +153,8 @@ class CommandVisualizationFacadeTest {
         given(trainingRunService.findAllByTrainingInstanceId(anyLong())).willReturn(trainingRuns);
         for (long i = 0; i < 4L; i++) {
             given(trainingRunService.findById(i)).willReturn(getTrainingRun(i));
-            given(elasticsearchApiService.findAllConsoleCommandsBySandbox(String.valueOf(i))).willReturn(List.of(elasticCommands.get((int) i)));
+            given(opensearchApiService.findAllConsoleCommandsBySandbox(String.valueOf(i))).willReturn(List.of(
+                openSearchCommands.get((int) i)));
         }
         Map<Long, List<CommandDTO>> received = commandVisualizationFacade.getAllCommandsByTrainingInstance(anyLong());
 

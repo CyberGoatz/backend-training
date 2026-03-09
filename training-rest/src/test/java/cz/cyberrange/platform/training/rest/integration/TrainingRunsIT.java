@@ -41,7 +41,7 @@ import cz.cyberrange.platform.training.rest.utils.error.CustomRestExceptionHandl
 import cz.cyberrange.platform.training.service.mapping.mapstruct.HintMapperImpl;
 import cz.cyberrange.platform.training.service.mapping.mapstruct.LevelMapperImpl;
 import cz.cyberrange.platform.training.service.mapping.mapstruct.TrainingRunMapperImpl;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -136,7 +136,7 @@ public class TrainingRunsIT {
     @Autowired
     private HintMapperImpl hintMapper;
     @Autowired
-    private ElasticsearchApiService elasticsearchApiServiceMock;
+    private OpenSearchApiService opensearchApiServiceMock;
     @Autowired
     @Qualifier("objMapperRESTApi")
     private ObjectMapper mapper;

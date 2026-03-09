@@ -43,7 +43,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <crczp-security-commons.version>1.0.1</crczp-security-commons.version>
-        <crczp-elasticsearch-documents.version>1.0.1</crczp-elasticsearch-documents.version>
         <swagger.version>2.9.2</swagger.version>
         <swagger.directory>${basedir}/../doc-files</swagger.directory>
         <swagger.skip>true</swagger.skip>
@@ -72,11 +71,6 @@
                 <groupId>cz.cybersecurityhub.maven</groupId>
                 <artifactId>crczp-security-commons</artifactId>
                 <version>${crczp-security-commons.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>cz.cybersecurityhub.maven</groupId>
-                <artifactId>crczp-elasticsearch-documents</artifactId>
-                <version>${crczp-elasticsearch-documents.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.springfox</groupId>
@@ -268,7 +262,7 @@
         <module>training-persistence</module>
         <module>training-service</module>
         <module>training-rest</module>
-        <module>training-elasticsearch</module>
+        <module>training-opensearch</module>
         <module>training-api</module>
     </modules>
 </project>

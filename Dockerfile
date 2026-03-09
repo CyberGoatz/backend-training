@@ -12,7 +12,7 @@ COPY pom.xml /app/pom.xml
 COPY etc/ci_settings.xml /app/etc/ci_settings.xml
 
 COPY training-api /app/training-api
-COPY training-elasticsearch /app/training-elasticsearch
+COPY training-opensearch /app/training-opensearch
 COPY training-persistence /app/training-persistence
 COPY training-service /app/training-service
 COPY training-rest /app/training-rest

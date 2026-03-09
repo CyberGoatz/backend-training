@@ -1,15 +1,15 @@
 package cz.cyberrange.platform.training.service.facade;
 
-import cz.cyberrange.platform.events.AbstractAuditPOJO;
-import cz.cyberrange.platform.events.trainings.CorrectAnswerSubmitted;
-import cz.cyberrange.platform.events.trainings.LevelCompleted;
-import cz.cyberrange.platform.events.trainings.LevelStarted;
-import cz.cyberrange.platform.events.trainings.TrainingRunEnded;
 import cz.cyberrange.platform.training.api.dto.UserRefDTO;
 import cz.cyberrange.platform.training.api.dto.visualization.clustering.ClusteringLevelDTO;
 import cz.cyberrange.platform.training.api.dto.visualization.clustering.ClusteringVisualizationDTO;
 import cz.cyberrange.platform.training.api.dto.visualization.clustering.TrainingResultsDTO;
 import cz.cyberrange.platform.training.api.responses.PageResultResource;
+import cz.cyberrange.platform.training.opensearch.model.AbstractAuditPOJO;
+import cz.cyberrange.platform.training.opensearch.model.CorrectAnswerSubmitted;
+import cz.cyberrange.platform.training.opensearch.model.LevelCompleted;
+import cz.cyberrange.platform.training.opensearch.model.LevelStarted;
+import cz.cyberrange.platform.training.opensearch.model.TrainingRunEnded;
 import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
 import cz.cyberrange.platform.training.persistence.model.TrainingDefinition;
 import cz.cyberrange.platform.training.persistence.model.TrainingInstance;
@@ -24,7 +24,7 @@ import cz.cyberrange.platform.training.service.services.TrainingRunService;
 import cz.cyberrange.platform.training.service.services.UserService;
 import cz.cyberrange.platform.training.service.services.VisualizationService;
 import cz.cyberrange.platform.training.service.services.api.AnswersStorageApiService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,7 +62,7 @@ class VisualizationFacadeTest {
     @MockBean
     private AnswersStorageApiService answersStorageApiService;
     @MockBean
-    private ElasticsearchApiService elasticsearchApiService;
+    private OpenSearchApiService opensearchApiService;
     @MockBean
     private UserService userService;
     @MockBean
@@ -91,7 +91,7 @@ class VisualizationFacadeTest {
                 trainingRunService,
                 visualizationService,
                 answersStorageApiService,
-                elasticsearchApiService,
+                opensearchApiService,
                 userService,
                 levelMapper);
 
@@ -189,7 +189,7 @@ class VisualizationFacadeTest {
         given(trainingDefinitionService.findAllTrainingInstancesByTrainingDefinitionId(anyLong())).willReturn(trainingInstances);
 
         for (TrainingInstance trainingInstance : trainingInstances) {
-            given(elasticsearchApiService.getAggregatedEventsByLevelsAndTrainingRuns(trainingInstance.getId())).willReturn(eventsByInstanceId.get(trainingInstance.getId()));
+            given(opensearchApiService.getAggregatedEventsByLevelsAndTrainingRuns(trainingInstance.getId())).willReturn(eventsByInstanceId.get(trainingInstance.getId()));
             given(trainingRunService.findAllByTrainingInstanceId(trainingInstance.getId())).willReturn(runsByTrainingInstance.get(trainingInstance.getId()));
         }
 

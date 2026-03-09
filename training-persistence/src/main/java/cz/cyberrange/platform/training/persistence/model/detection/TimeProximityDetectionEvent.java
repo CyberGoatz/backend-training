@@ -12,7 +12,7 @@ import javax.persistence.NamedQuery;
 import javax.persistence.PrimaryKeyJoinColumn;
 import javax.persistence.Table;
 
-@EqualsAndHashCode
+@EqualsAndHashCode(callSuper = true)
 @Getter
 @Setter
 @ToString

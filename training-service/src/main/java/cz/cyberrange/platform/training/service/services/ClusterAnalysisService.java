@@ -1,13 +1,13 @@
 package cz.cyberrange.platform.training.service.services;
 
-import cz.cyberrange.platform.events.AbstractAuditPOJO;
-import cz.cyberrange.platform.events.trainings.CorrectAnswerSubmitted;
-import cz.cyberrange.platform.events.trainings.HintTaken;
-import cz.cyberrange.platform.events.trainings.SolutionDisplayed;
-import cz.cyberrange.platform.events.trainings.WrongAnswerSubmitted;
 import cz.cyberrange.platform.training.api.dto.visualization.clusteranalysis.HintClusterable;
 import cz.cyberrange.platform.training.api.dto.visualization.clusteranalysis.WrongAnswersClusterable;
 import cz.cyberrange.platform.training.api.utils.ClusterMathUtils;
+import cz.cyberrange.platform.training.opensearch.model.AbstractAuditPOJO;
+import cz.cyberrange.platform.training.opensearch.model.CorrectAnswerSubmitted;
+import cz.cyberrange.platform.training.opensearch.model.HintTaken;
+import cz.cyberrange.platform.training.opensearch.model.SolutionDisplayed;
+import cz.cyberrange.platform.training.opensearch.model.WrongAnswerSubmitted;
 import org.apache.commons.math3.exception.ConvergenceException;
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.stat.clustering.Cluster;

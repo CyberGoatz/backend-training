@@ -3,7 +3,6 @@ package cz.cyberrange.platform.training.service.services;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.dsl.PathBuilder;
-import cz.cyberrange.platform.events.trainings.LevelCompleted;
 import cz.cyberrange.platform.training.api.exceptions.BadRequestException;
 import cz.cyberrange.platform.training.api.exceptions.CustomWebClientException;
 import cz.cyberrange.platform.training.api.exceptions.EntityConflictException;
@@ -14,7 +13,17 @@ import cz.cyberrange.platform.training.api.exceptions.TooManyRequestsException;
 import cz.cyberrange.platform.training.api.exceptions.errors.JavaApiError;
 import cz.cyberrange.platform.training.api.exceptions.errors.PythonApiError;
 import cz.cyberrange.platform.training.api.responses.SandboxInfo;
-import cz.cyberrange.platform.training.persistence.model.*;
+import cz.cyberrange.platform.training.opensearch.model.LevelCompleted;
+import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
+import cz.cyberrange.platform.training.persistence.model.AssessmentLevel;
+import cz.cyberrange.platform.training.persistence.model.Hint;
+import cz.cyberrange.platform.training.persistence.model.InfoLevel;
+import cz.cyberrange.platform.training.persistence.model.TRAcquisitionLock;
+import cz.cyberrange.platform.training.persistence.model.TrainingDefinition;
+import cz.cyberrange.platform.training.persistence.model.TrainingInstance;
+import cz.cyberrange.platform.training.persistence.model.TrainingLevel;
+import cz.cyberrange.platform.training.persistence.model.TrainingRun;
+import cz.cyberrange.platform.training.persistence.model.UserRef;
 import cz.cyberrange.platform.training.persistence.model.enums.TRState;
 import cz.cyberrange.platform.training.persistence.repository.AbstractLevelRepository;
 import cz.cyberrange.platform.training.persistence.repository.HintRepository;
@@ -26,7 +35,7 @@ import cz.cyberrange.platform.training.persistence.repository.TrainingRunReposit
 import cz.cyberrange.platform.training.persistence.repository.UserRefRepository;
 import cz.cyberrange.platform.training.persistence.util.TestDataFactory;
 import cz.cyberrange.platform.training.service.services.api.AnswersStorageApiService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import cz.cyberrange.platform.training.service.services.api.SandboxApiService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -76,7 +85,7 @@ public class TrainingRunServiceTest {
     @MockBean
     private AuditEventsService auditEventService;
     @MockBean
-    private ElasticsearchApiService elasticsearchApiService;
+    private OpenSearchApiService opensearchApiService;
     @MockBean
     private AbstractLevelRepository abstractLevelRepository;
     @MockBean
@@ -108,7 +117,7 @@ public class TrainingRunServiceTest {
     public void init() {
         MockitoAnnotations.openMocks(this);
         trainingRunService = new TrainingRunService(trainingRunRepository, abstractLevelRepository, trainingInstanceRepository,
-                participantRefRepository, hintRepository, auditEventService, elasticsearchApiService, answersStorageApiService,
+                participantRefRepository, hintRepository, auditEventService, opensearchApiService, answersStorageApiService,
                 securityService, questionAnswerRepository, sandboxApiService, trAcquisitionLockRepository, submissionRepository);
 
         trainingDefinition = testDataFactory.getReleasedDefinition();
@@ -614,8 +623,8 @@ public class TrainingRunServiceTest {
 
     @Test
     public void testCheckRunEventLogging() {
-        given(elasticsearchApiService.findAllEventsFromTrainingRun(trainingRun1)).willReturn(List.of());
-        given(elasticsearchApiService.findAllEventsFromTrainingRun(trainingRun2)).willReturn(List.of(new LevelCompleted()));
+        given(opensearchApiService.findAllEventsFromTrainingRun(trainingRun1)).willReturn(List.of());
+        given(opensearchApiService.findAllEventsFromTrainingRun(trainingRun2)).willReturn(List.of(new LevelCompleted()));
 
         assertFalse(trainingRunService.checkRunEventLogging(trainingRun1));
         assertTrue(trainingRunService.checkRunEventLogging(trainingRun2));
@@ -625,8 +634,8 @@ public class TrainingRunServiceTest {
     public void testCheckRunCommandLogging() {
         trainingRun1.getTrainingInstance().setLocalEnvironment(false);
         trainingRun2.getTrainingInstance().setLocalEnvironment(true);
-        given(elasticsearchApiService.findAllConsoleCommandsBySandbox(anyString())).willReturn(List.of());
-        given(elasticsearchApiService.findAllConsoleCommandsByAccessTokenAndUserId(anyString(), anyLong())).willReturn(List.of(new HashMap<>()));
+        given(opensearchApiService.findAllConsoleCommandsBySandbox(anyString())).willReturn(List.of());
+        given(opensearchApiService.findAllConsoleCommandsByAccessTokenAndUserId(anyString(), anyLong())).willReturn(List.of(new HashMap<>()));
 
         assertFalse(trainingRunService.checkRunCommandLogging(trainingRun1));
         assertTrue(trainingRunService.checkRunCommandLogging(trainingRun2));

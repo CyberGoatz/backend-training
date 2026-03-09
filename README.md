@@ -28,8 +28,8 @@ This project is divided into several modules:
   * Uses Spring Data JPA (Spring wrapper layer over JPA implemented with Hibernate framework).
   * Communicates with PostgreSQL database.
   * Uses QueryDSL for filtering the data.
-* `training-elasticsearch`
-  * Used for auditing and retrieving data from Elasticsearch storage.
+* `training-opensearch`
+  * Used for auditing and retrieving data from OpenSearch storage.
   * Contains Event classes describing particular events.
 
 And the main project (parent maven project with packaging pom):

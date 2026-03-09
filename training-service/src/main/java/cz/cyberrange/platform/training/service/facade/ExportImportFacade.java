@@ -3,8 +3,6 @@ package cz.cyberrange.platform.training.service.facade;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.core.util.MinimalPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import cz.cyberrange.platform.events.AbstractAuditPOJO;
-import cz.cyberrange.platform.events.trainings.LevelStarted;
 import cz.cyberrange.platform.training.api.dto.UserRefDTO;
 import cz.cyberrange.platform.training.api.dto.archive.QuestionAnswerArchiveDTO;
 import cz.cyberrange.platform.training.api.dto.archive.QuestionAnswersDetailsDTO;
@@ -29,6 +27,8 @@ import cz.cyberrange.platform.training.api.exceptions.EntityErrorDetail;
 import cz.cyberrange.platform.training.api.exceptions.InternalServerErrorException;
 import cz.cyberrange.platform.training.api.exceptions.UnprocessableEntityException;
 import cz.cyberrange.platform.training.api.responses.SandboxDefinitionInfo;
+import cz.cyberrange.platform.training.opensearch.model.AbstractAuditPOJO;
+import cz.cyberrange.platform.training.opensearch.model.LevelStarted;
 import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
 import cz.cyberrange.platform.training.persistence.model.AssessmentLevel;
 import cz.cyberrange.platform.training.persistence.model.Hint;
@@ -54,7 +54,7 @@ import cz.cyberrange.platform.training.service.services.ExportImportService;
 import cz.cyberrange.platform.training.service.services.SecurityService;
 import cz.cyberrange.platform.training.service.services.TrainingDefinitionService;
 import cz.cyberrange.platform.training.service.services.UserService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import cz.cyberrange.platform.training.service.services.api.SandboxApiService;
 import cz.cyberrange.platform.training.service.services.api.TrainingFeedbackApiService;
 import cz.cyberrange.platform.training.service.utils.AbstractFileExtensions;
@@ -98,7 +98,7 @@ public class ExportImportFacade {
     private final ExportImportService exportImportService;
     private final TrainingDefinitionService trainingDefinitionService;
     private final SandboxApiService sandboxApiService;
-    private final ElasticsearchApiService elasticsearchApiService;
+    private final OpenSearchApiService opensearchApiService;
     private final TrainingFeedbackApiService trainingFeedbackApiService;
     private final UserService userService;
     private final SecurityService securityService;
@@ -122,7 +122,7 @@ public class ExportImportFacade {
     @Autowired
     public ExportImportFacade(ExportImportService exportImportService,
                               TrainingDefinitionService trainingDefinitionService,
-                              ElasticsearchApiService elasticsearchApiService,
+                              OpenSearchApiService opensearchApiService,
                               TrainingFeedbackApiService trainingFeedbackApiService,
                               SandboxApiService sandboxApiService,
                               UserService userService, SecurityService securityService, ExportImportMapper exportImportMapper,
@@ -131,7 +131,7 @@ public class ExportImportFacade {
                               ObjectMapper objectMapper) {
         this.exportImportService = exportImportService;
         this.trainingDefinitionService = trainingDefinitionService;
-        this.elasticsearchApiService = elasticsearchApiService;
+        this.opensearchApiService = opensearchApiService;
         this.trainingFeedbackApiService = trainingFeedbackApiService;
         this.sandboxApiService = sandboxApiService;
         this.userService = userService;
@@ -397,7 +397,7 @@ public class ExportImportFacade {
             zos.write(objectMapper.writeValueAsBytes(archivedRun));
 
             writeQuestionsAnswers(zos, run, assessmentsDetails);
-            List<AbstractAuditPOJO> events = elasticsearchApiService.findAllEventsFromTrainingRun(run);
+            List<AbstractAuditPOJO> events = opensearchApiService.findAllEventsFromTrainingRun(run);
             if (events.isEmpty()) {
                 continue;
             }
@@ -415,10 +415,10 @@ public class ExportImportFacade {
 
     private List<Map<String, Object>> getConsoleCommands(TrainingInstance instance, TrainingRun run) {
         if (instance.isLocalEnvironment()) {
-            return elasticsearchApiService.findAllConsoleCommandsByAccessTokenAndUserId(instance.getAccessToken(), run.getParticipantRef().getUserRefId());
+            return opensearchApiService.findAllConsoleCommandsByAccessTokenAndUserId(instance.getAccessToken(), run.getParticipantRef().getUserRefId());
         }
         String sandboxId = run.getSandboxInstanceRefId() == null ? run.getPreviousSandboxInstanceRefId() : run.getSandboxInstanceRefId();
-        return elasticsearchApiService.findAllConsoleCommandsBySandbox(sandboxId);
+        return opensearchApiService.findAllConsoleCommandsBySandbox(sandboxId);
     }
 
     private void writeAssessmentsDetails(ZipOutputStream zos, Map<Long, Map<Long, QuestionAnswersDetailsDTO>> assessmentsDetails) throws IOException {
@@ -519,9 +519,9 @@ public class ExportImportFacade {
 
     private List<Map<String, Object>> getConsoleCommandsWithinTimeRange(TrainingInstance instance, TrainingRun run, String sandboxId, Long from, Long to) {
         if(instance.isLocalEnvironment()) {
-            return elasticsearchApiService.findAllConsoleCommandsByAccessTokenAndUserIdAndTimeRange(instance.getAccessToken(), run.getParticipantRef().getUserRefId(), from, to);
+            return opensearchApiService.findAllConsoleCommandsByAccessTokenAndUserIdAndTimeRange(instance.getAccessToken(), run.getParticipantRef().getUserRefId(), from, to);
         }
-        return elasticsearchApiService.findAllConsoleCommandsBySandboxAndTimeRange(sandboxId, from, to);
+        return opensearchApiService.findAllConsoleCommandsBySandboxAndTimeRange(sandboxId, from, to);
     }
 
     private void writeTrainingDefinitionInfo(ZipOutputStream zos, TrainingInstance trainingInstance) throws IOException {

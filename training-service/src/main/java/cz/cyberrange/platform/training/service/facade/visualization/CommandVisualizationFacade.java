@@ -19,10 +19,10 @@ import cz.cyberrange.platform.training.service.services.SecurityService;
 import cz.cyberrange.platform.training.service.services.TrainingInstanceService;
 import cz.cyberrange.platform.training.service.services.TrainingRunService;
 import cz.cyberrange.platform.training.service.services.UserService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import cz.cyberrange.platform.training.service.services.api.TrainingFeedbackApiService;
 import cz.cyberrange.platform.training.service.utils.AbstractCommandPrefixes;
-import cz.cyberrange.platform.training.service.utils.ElasticSearchCommand;
+import cz.cyberrange.platform.training.service.utils.OpenSearchCommand;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,7 +53,7 @@ public class CommandVisualizationFacade {
     private final UserService userService;
     private final TrainingFeedbackApiService trainingFeedbackApiService;
     private final TrainingRunMapper trainingRunMapper;
-    private final ElasticsearchApiService elasticsearchApiService;
+    private final OpenSearchApiService opensearchApiService;
     private final ObjectMapper objectMapper;
 
     @Autowired
@@ -62,14 +62,14 @@ public class CommandVisualizationFacade {
                                       SecurityService securityService,
                                       UserService userService,
                                       TrainingFeedbackApiService trainingFeedbackApiService,
-                                      TrainingRunMapper trainingRunMapper, ElasticsearchApiService elasticsearchApiService, ObjectMapper objectMapper) {
+                                      TrainingRunMapper trainingRunMapper, OpenSearchApiService opensearchApiService, ObjectMapper objectMapper) {
         this.trainingInstanceService = trainingInstanceService;
         this.trainingRunService = trainingRunService;
         this.securityService = securityService;
         this.userService = userService;
         this.trainingFeedbackApiService = trainingFeedbackApiService;
         this.trainingRunMapper = trainingRunMapper;
-        this.elasticsearchApiService = elasticsearchApiService;
+        this.opensearchApiService = opensearchApiService;
         this.objectMapper = objectMapper;
     }
 
@@ -216,24 +216,25 @@ public class CommandVisualizationFacade {
         if (trainingInstance.isLocalEnvironment()) {
             String accessToken = trainingInstance.getAccessToken();
             Long userId = trainingRun.getParticipantRef().getId();
-            elasticCommands = elasticsearchApiService.findAllConsoleCommandsByAccessTokenAndUserId(accessToken, userId);
+            elasticCommands = opensearchApiService.findAllConsoleCommandsByAccessTokenAndUserId(accessToken, userId);
         } else {
             String sandboxId = trainingRun.getSandboxInstanceRefId() == null ? trainingRun.getPreviousSandboxInstanceRefId() : trainingRun.getSandboxInstanceRefId();
-            elasticCommands = elasticsearchApiService.findAllConsoleCommandsBySandbox(sandboxId);
+            elasticCommands = opensearchApiService.findAllConsoleCommandsBySandbox(sandboxId);
         }
 
-        return elasticCommandsToCommandDTOlist(elasticCommands, trainingRun.getStartTime());
+        return openSearchCommandsToCommandDTOlist(elasticCommands, trainingRun.getStartTime());
     }
 
-    private List<CommandDTO> elasticCommandsToCommandDTOlist(List<Map<String, Object>> elasticCommands, LocalDateTime runStartTime) {
+    private List<CommandDTO> openSearchCommandsToCommandDTOlist(List<Map<String, Object>> elasticCommands, LocalDateTime runStartTime) {
         List<CommandDTO> commandDTOS = new ArrayList<>(elasticCommands.size());
         elasticCommands.stream()
-                .map(elasticCommand -> objectMapper.convertValue(elasticCommand, ElasticSearchCommand.class))
-                .forEach(command -> commandDTOS.add(elasticSearchCommandToCommandDTO(command, runStartTime)));
+                .map(elasticCommand -> objectMapper.convertValue(elasticCommand, OpenSearchCommand.class))
+                .forEach(command -> commandDTOS.add(
+                    openSearchCommandToCommandDTO(command, runStartTime)));
         return commandDTOS;
     }
 
-    private CommandDTO elasticSearchCommandToCommandDTO(ElasticSearchCommand elasticSearchCommand, LocalDateTime runStartTime) {
+    private CommandDTO openSearchCommandToCommandDTO(OpenSearchCommand elasticSearchCommand, LocalDateTime runStartTime) {
         String[] commandSplit =  elasticSearchCommand.getCmd().split(" ", 2);
         String command = commandSplit[0];
         if (AbstractCommandPrefixes.isPrefix(command) && commandSplit.length > 1) {

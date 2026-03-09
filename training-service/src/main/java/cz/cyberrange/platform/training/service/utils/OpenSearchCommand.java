@@ -8,7 +8,7 @@ import java.util.Objects;
 /**
  * This class is a representation of a logged command retrieved by the elastic search api.
  */
-public class ElasticSearchCommand {
+public class OpenSearchCommand {
     private String hostname;
     private String ip;
     @JsonProperty(value = "timestamp_str")
@@ -99,7 +99,7 @@ public class ElasticSearchCommand {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        ElasticSearchCommand that = (ElasticSearchCommand) o;
+        OpenSearchCommand that = (OpenSearchCommand) o;
         return hostname.equals(that.hostname) && ip.equals(that.ip) && timestampStr.equals(that.timestampStr) && sandboxId.equals(that.sandboxId) && cmd.equals(that.cmd) && poolId.equals(that.poolId) && wd.equals(that.wd) && cmdType.equals(that.cmdType) && username.equals(that.username);
     }
 
@@ -110,7 +110,7 @@ public class ElasticSearchCommand {
 
     @Override
     public String toString() {
-        return "ElasticSearchCommand{" +
+        return "OpenSearchCommand{" +
                 "hostname='" + hostname + '\'' +
                 ", ip='" + ip + '\'' +
                 ", timestampStr='" + timestampStr + '\'' +

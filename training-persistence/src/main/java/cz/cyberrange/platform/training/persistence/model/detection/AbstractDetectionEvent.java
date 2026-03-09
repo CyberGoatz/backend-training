@@ -25,7 +25,7 @@ import java.time.LocalDateTime;
  * Detection events can be created based on suspicious
  * submissions in a training instance.
  */
-@EqualsAndHashCode
+@EqualsAndHashCode(callSuper = false)
 @Getter
 @Setter
 @ToString

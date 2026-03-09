@@ -1,9 +1,21 @@
 package cz.cyberrange.platform.training.service.services;
 
-import cz.cyberrange.platform.events.AbstractAuditPOJO;
-import cz.cyberrange.platform.events.trainings.*;
-import cz.cyberrange.platform.events.trainings.enums.LevelType;
-import cz.cyberrange.platform.training.elasticsearch.service.AuditService;
+
+import cz.cyberrange.platform.training.opensearch.logging.AuditService;
+import cz.cyberrange.platform.training.opensearch.model.AbstractAuditPOJO;
+import cz.cyberrange.platform.training.opensearch.model.AssessmentAnswers;
+import cz.cyberrange.platform.training.opensearch.model.CorrectAnswerSubmitted;
+import cz.cyberrange.platform.training.opensearch.model.CorrectPasskeySubmitted;
+import cz.cyberrange.platform.training.opensearch.model.HintTaken;
+import cz.cyberrange.platform.training.opensearch.model.LevelCompleted;
+import cz.cyberrange.platform.training.opensearch.model.LevelStarted;
+import cz.cyberrange.platform.training.opensearch.model.SolutionDisplayed;
+import cz.cyberrange.platform.training.opensearch.model.TrainingRunEnded;
+import cz.cyberrange.platform.training.opensearch.model.TrainingRunResumed;
+import cz.cyberrange.platform.training.opensearch.model.TrainingRunStarted;
+import cz.cyberrange.platform.training.opensearch.model.WrongAnswerSubmitted;
+import cz.cyberrange.platform.training.opensearch.model.WrongPasskeySubmitted;
+import cz.cyberrange.platform.training.opensearch.model.enums.EventLevelType;
 import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
 import cz.cyberrange.platform.training.persistence.model.AccessLevel;
 import cz.cyberrange.platform.training.persistence.model.AssessmentLevel;
@@ -12,13 +24,12 @@ import cz.cyberrange.platform.training.persistence.model.InfoLevel;
 import cz.cyberrange.platform.training.persistence.model.TrainingInstance;
 import cz.cyberrange.platform.training.persistence.model.TrainingLevel;
 import cz.cyberrange.platform.training.persistence.model.TrainingRun;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 /**
  * The type Audit events service.
@@ -250,16 +261,16 @@ public class AuditEventsService {
         return ChronoUnit.MILLIS.between(trainingStartedTime, LocalDateTime.now(Clock.systemUTC()));
     }
 
-    private LevelType getLevelType(AbstractLevel abstractLevel) {
+    private EventLevelType getLevelType(AbstractLevel abstractLevel) {
         if (abstractLevel instanceof TrainingLevel) {
-            return LevelType.TRAINING;
+            return EventLevelType.TRAINING;
         } else if (abstractLevel instanceof InfoLevel) {
-            return LevelType.INFO;
+            return EventLevelType.INFO;
         } else if (abstractLevel instanceof AssessmentLevel) {
-            return LevelType.ASSESSMENT;
+            return EventLevelType.ASSESSMENT;
         } else if (abstractLevel instanceof AccessLevel) {
-            return LevelType.ACCESS;
+            return EventLevelType.ACCESS;
         }
-        return LevelType.PVP;
+        return EventLevelType.PVP;
     }
 }

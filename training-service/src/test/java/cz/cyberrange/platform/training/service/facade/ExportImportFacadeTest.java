@@ -22,7 +22,7 @@ import cz.cyberrange.platform.training.service.services.ExportImportService;
 import cz.cyberrange.platform.training.service.services.SecurityService;
 import cz.cyberrange.platform.training.service.services.TrainingDefinitionService;
 import cz.cyberrange.platform.training.service.services.UserService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import cz.cyberrange.platform.training.service.services.api.SandboxApiService;
 import cz.cyberrange.platform.training.service.services.api.TrainingFeedbackApiService;
 import org.junit.jupiter.api.BeforeEach;
@@ -89,7 +89,7 @@ public class ExportImportFacadeTest {
     private TrainingLevel trainingLevel;
     private InfoLevel infoLevel;
     private ImportTrainingDefinitionDTO importTrainingDefinitionDTO;
-    private ElasticsearchApiService elasticsearchApiService;
+    private OpenSearchApiService opensearchApiService;
     private TrainingInstance exportTrainingInstance;
     private TrainingRun[] trainingRuns;
     private UserRefDTO[] userRefDTOS;
@@ -98,7 +98,7 @@ public class ExportImportFacadeTest {
     @BeforeEach
     public void init() {
         MockitoAnnotations.openMocks(this);
-        exportImportFacade = new ExportImportFacade(exportImportService, trainingDefinitionService, elasticsearchApiService,
+        exportImportFacade = new ExportImportFacade(exportImportService, trainingDefinitionService, opensearchApiService,
                 trainingFeedbackApiService, sandboxApiService, userService, securityService, exportImportMapper, infoLevelMapper, trainingDefinitionMapper, objectMapper);
 
         assessmentLevel = testDataFactory.getTest();

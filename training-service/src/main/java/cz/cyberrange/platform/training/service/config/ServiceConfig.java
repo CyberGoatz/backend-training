@@ -2,7 +2,7 @@ package cz.cyberrange.platform.training.service.config;
 
 import cz.cyberrange.platform.commons.security.config.ResourceServerSecurityConfig;
 import cz.cyberrange.platform.commons.startup.config.MicroserviceRegistrationConfiguration;
-import cz.cyberrange.platform.training.elasticsearch.service.config.ElasticsearchServiceConfig;
+import cz.cyberrange.platform.training.opensearch.config.OpenSearchServiceConfig;
 import cz.cyberrange.platform.training.persistence.config.PersistenceConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.MethodInvokingFactoryBean;
@@ -20,7 +20,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 @Configuration
 @EnableAsync(proxyTargetClass = true)
 @Import({MicroserviceRegistrationConfiguration.class,
-        ElasticsearchServiceConfig.class,
+        OpenSearchServiceConfig.class,
         PersistenceConfig.class,
         ResourceServerSecurityConfig.class,
         WebClientConfig.class

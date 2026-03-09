@@ -5,13 +5,13 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import cz.cyberrange.platform.training.api.validation.EmailValidator;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import org.apache.catalina.connector.Connector;
 import org.apache.catalina.connector.Request;
 import org.apache.http.HttpHost;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.opensearch.client.RestClient;
+import org.opensearch.client.RestClientBuilder;
+import org.opensearch.client.RestHighLevelClient;
 import org.mockito.Mockito;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
@@ -33,7 +33,7 @@ import javax.servlet.http.HttpServletRequestWrapper;
 
 @Configuration
 @ComponentScan(basePackages = {"cz.cyberrange.platform.training.service.facade", "cz.cyberrange.platform.training.service.mapping", "cz.cyberrange.platform.training.service.services",
-		"cz.cyberrange.platform.training.elasticsearch.service"})
+		"cz.cyberrange.platform.training.opensearch.service"})
 @EntityScan(basePackages = {"cz.cyberrange.platform.training.persistence.model", "cz.cyberrange.platform.commons.persistence.model"},  basePackageClasses = Jsr310JpaConverters.class)
 @EnableJpaRepositories(basePackages = {"cz.cyberrange.platform.training.persistence.repository", "cz.cyberrange.platform.commons"})
 public class RestConfigTest {
@@ -71,8 +71,8 @@ public class RestConfigTest {
 	}
 
 	@Bean
-	@Qualifier("elasticsearchExchangeFunction")
-	public ExchangeFunction elasticsearchExchangeFunction(){
+	@Qualifier("opensearchExchangeFunction")
+	public ExchangeFunction opensearchExchangeFunction(){
 		return Mockito.mock(ExchangeFunction.class);
 	}
 
@@ -94,10 +94,10 @@ public class RestConfigTest {
 	}
 
 	@Bean
-	@Qualifier("elasticsearchServiceWebClient")
-	public WebClient elasticsearchServiceWebClient(){
+	@Qualifier("opensearchServiceWebClient")
+	public WebClient opensearchServiceWebClient(){
 		return WebClient.builder()
-				.exchangeFunction(elasticsearchExchangeFunction())
+				.exchangeFunction(opensearchExchangeFunction())
 				.build();
 	}
 
@@ -115,8 +115,8 @@ public class RestConfigTest {
 
 	@Bean
 	@Primary
-	public ElasticsearchApiService elasticsearchApiServiceMock(){
-		return Mockito.mock(ElasticsearchApiService.class);
+	public OpenSearchApiService opensearchApiServiceMock(){
+		return Mockito.mock(OpenSearchApiService.class);
 	}
 
 	@Bean

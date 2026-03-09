@@ -35,8 +35,8 @@ public class WebClientConfig {
     private String openStackURI;
     @Value("${user-and-group-server.uri}")
     private String userAndGroupURI;
-    @Value("${elasticsearch-service.uri}")
-    private String elasticsearchServiceURI;
+    @Value("${opensearch-service.uri}")
+    private String opensearchServiceURI;
     @Value("${answers-storage.uri}")
     private String answersStorageURI;
     @Value("${training-feedback-service.uri}")
@@ -92,15 +92,15 @@ public class WebClientConfig {
     }
 
     /**
-     * Elasticsearch service web client.
+     * OpenSearch service web client.
      *
      * @return the web client
      */
     @Bean
-    @Qualifier("elasticsearchServiceWebClient")
-    public WebClient elasticsearchServiceWebClient() {
+    @Qualifier("opensearchServiceWebClient")
+    public WebClient opensearchServiceWebClient() {
         return WebClient.builder()
-                .baseUrl(elasticsearchServiceURI)
+                .baseUrl(opensearchServiceURI)
                 .defaultHeaders(headers -> {
                     headers.add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
                     headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);

@@ -32,7 +32,7 @@ import cz.cyberrange.platform.training.service.services.TrainingDefinitionServic
 import cz.cyberrange.platform.training.service.services.TrainingInstanceService;
 import cz.cyberrange.platform.training.service.services.TrainingRunService;
 import cz.cyberrange.platform.training.service.services.UserService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import cz.cyberrange.platform.training.service.services.api.SandboxApiService;
 import cz.cyberrange.platform.training.service.services.api.TrainingFeedbackApiService;
 import cz.cyberrange.platform.training.service.services.detection.CheatingDetectionService;
@@ -68,7 +68,7 @@ public class TrainingInstanceFacade {
     private final SecurityService securityService;
     private final TrainingInstanceMapper trainingInstanceMapper;
     private final TrainingRunMapper trainingRunMapper;
-    private final ElasticsearchApiService elasticsearchApiService;
+    private final OpenSearchApiService opensearchApiService;
     private final SandboxApiService sandboxApiService;
     private final TrainingFeedbackApiService trainingFeedbackApiService;
 
@@ -83,7 +83,7 @@ public class TrainingInstanceFacade {
      * @param trainingInstanceMapper    the training instance mapper
      * @param trainingRunMapper         the training run mapper
      * @param userService               the user service
-     * @param elasticsearchApiService   the elasticsearch api service
+     * @param opensearchApiService   the opensearch api service
      * @param securityService           the security service
      */
     @Autowired
@@ -92,7 +92,7 @@ public class TrainingInstanceFacade {
                                   TrainingRunService trainingRunService,
                                   CheatingDetectionService cheatingDetectionService,
                                   UserService userService,
-                                  ElasticsearchApiService elasticsearchApiService,
+                                  OpenSearchApiService opensearchApiService,
                                   SecurityService securityService,
                                   SandboxApiService sandboxApiService,
                                   TrainingInstanceMapper trainingInstanceMapper,
@@ -103,7 +103,7 @@ public class TrainingInstanceFacade {
         this.trainingRunService = trainingRunService;
         this.cheatingDetectionService = cheatingDetectionService;
         this.userService = userService;
-        this.elasticsearchApiService = elasticsearchApiService;
+        this.opensearchApiService = opensearchApiService;
         this.securityService = securityService;
         this.sandboxApiService = sandboxApiService;
         this.trainingInstanceMapper = trainingInstanceMapper;
@@ -308,18 +308,18 @@ public class TrainingInstanceFacade {
         trainingInstanceService.delete(trainingInstance);
         cheatingDetectionService.deleteAllCheatingDetectionsOfTrainingInstance(trainingInstanceId);
         trainingFeedbackApiService.deleteAllGraphsByTrainingInstance(trainingInstanceId);
-        elasticsearchApiService.deleteEventsByTrainingInstanceId(trainingInstance.getId());
+        opensearchApiService.deleteEventsByTrainingInstanceId(trainingInstance.getId());
     }
 
     private void deleteBashCommandsByPool(Long poolId){
         try {
-            elasticsearchApiService.deleteCommandsByPool(poolId);
+            opensearchApiService.deleteCommandsByPool(poolId);
         } catch (MicroserviceApiException ignored){ }
     }
 
     private void deleteBashCommandsByAccessToken(String accessToken){
         try {
-            elasticsearchApiService.deleteCommandsByAccessToken(accessToken);
+            opensearchApiService.deleteCommandsByAccessToken(accessToken);
         } catch (MicroserviceApiException ignored){ }
     }
 

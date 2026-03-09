@@ -1,16 +1,16 @@
 package cz.cyberrange.platform.training.service.facade;
 
-import cz.cyberrange.platform.events.AbstractAuditPOJO;
-import cz.cyberrange.platform.events.trainings.CorrectAnswerSubmitted;
-import cz.cyberrange.platform.events.trainings.HintTaken;
-import cz.cyberrange.platform.events.trainings.LevelCompleted;
-import cz.cyberrange.platform.events.trainings.TrainingRunEnded;
-import cz.cyberrange.platform.events.trainings.WrongAnswerSubmitted;
 import cz.cyberrange.platform.training.api.dto.UserRefDTO;
 import cz.cyberrange.platform.training.api.dto.visualization.analytical.LevelAnalyticalDashboardDTO;
 import cz.cyberrange.platform.training.api.dto.visualization.analytical.ParticipantAnalyticalDashboardDTO;
 import cz.cyberrange.platform.training.api.dto.visualization.analytical.ParticipantLevelAnalyticalDashboardDTO;
 import cz.cyberrange.platform.training.api.dto.visualization.analytical.TrainingInstanceAnalyticalDashboardDTO;
+import cz.cyberrange.platform.training.opensearch.model.AbstractAuditPOJO;
+import cz.cyberrange.platform.training.opensearch.model.CorrectAnswerSubmitted;
+import cz.cyberrange.platform.training.opensearch.model.HintTaken;
+import cz.cyberrange.platform.training.opensearch.model.LevelCompleted;
+import cz.cyberrange.platform.training.opensearch.model.TrainingRunEnded;
+import cz.cyberrange.platform.training.opensearch.model.WrongAnswerSubmitted;
 import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
 import cz.cyberrange.platform.training.persistence.model.TrainingInstance;
 import cz.cyberrange.platform.training.persistence.model.TrainingLevel;
@@ -20,7 +20,7 @@ import cz.cyberrange.platform.training.service.annotations.transactions.Transact
 import cz.cyberrange.platform.training.service.facade.visualization.VisualizationFacade;
 import cz.cyberrange.platform.training.service.services.TrainingDefinitionService;
 import cz.cyberrange.platform.training.service.services.TrainingInstanceService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -43,16 +43,16 @@ public class AnalyticalDashboardFacade {
     private final TrainingDefinitionService trainingDefinitionService;
     private final TrainingInstanceService trainingInstanceService;
     private final VisualizationFacade visualizationFacade;
-    private final ElasticsearchApiService elasticsearchApiService;
+    private final OpenSearchApiService opensearchApiService;
 
     public AnalyticalDashboardFacade(TrainingDefinitionService trainingDefinitionService,
                                       TrainingInstanceService trainingInstanceService,
                                       VisualizationFacade visualizationFacade,
-                                      ElasticsearchApiService elasticsearchApiService) {
+                                      OpenSearchApiService opensearchApiService) {
         this.trainingDefinitionService = trainingDefinitionService;
         this.trainingInstanceService = trainingInstanceService;
         this.visualizationFacade = visualizationFacade;
-        this.elasticsearchApiService = elasticsearchApiService;
+        this.opensearchApiService = opensearchApiService;
     }
 
     /**
@@ -80,7 +80,7 @@ public class AnalyticalDashboardFacade {
         //INSTANCES
         for (TrainingInstance instance: trainingInstances) {
             TrainingInstanceData instanceData = new TrainingInstanceData(instance.getId(), trainingLevels);
-            var eventsByTrainingRunsAndLevels= elasticsearchApiService.getAggregatedEventsByTrainingRunsAndLevels(instance.getId());
+            var eventsByTrainingRunsAndLevels= opensearchApiService.getAggregatedEventsByTrainingRunsAndLevels(instance.getId());
             List<ParticipantAnalyticalDashboardDTO> participantsDetails = processParticipants(eventsByTrainingRunsAndLevels, instanceData, trainingLevelIds);
 
             TrainingInstanceAnalyticalDashboardDTO analysedInstance = new TrainingInstanceAnalyticalDashboardDTO();

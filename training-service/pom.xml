@@ -37,7 +37,7 @@
         </dependency>
         <dependency>
             <groupId>cz.cybersecurityhub.maven</groupId>
-            <artifactId>training-elasticsearch</artifactId>
+            <artifactId>training-opensearch</artifactId>
             <version>${app-version}</version>
         </dependency>
         <dependency>

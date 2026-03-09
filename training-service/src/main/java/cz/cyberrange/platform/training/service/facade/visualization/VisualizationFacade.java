@@ -1,20 +1,5 @@
 package cz.cyberrange.platform.training.service.facade.visualization;
 
-import cz.cyberrange.platform.events.AbstractAuditPOJO;
-import cz.cyberrange.platform.events.trainings.AssessmentAnswers;
-import cz.cyberrange.platform.events.trainings.CorrectAnswerSubmitted;
-import cz.cyberrange.platform.events.trainings.CorrectPasskeySubmitted;
-import cz.cyberrange.platform.events.trainings.HintTaken;
-import cz.cyberrange.platform.events.trainings.LevelCompleted;
-import cz.cyberrange.platform.events.trainings.LevelStarted;
-import cz.cyberrange.platform.events.trainings.SolutionDisplayed;
-import cz.cyberrange.platform.events.trainings.TrainingRunEnded;
-import cz.cyberrange.platform.events.trainings.TrainingRunResumed;
-import cz.cyberrange.platform.events.trainings.TrainingRunStarted;
-import cz.cyberrange.platform.events.trainings.TrainingRunSurrendered;
-import cz.cyberrange.platform.events.trainings.WrongAnswerSubmitted;
-import cz.cyberrange.platform.events.trainings.WrongPasskeySubmitted;
-import cz.cyberrange.platform.events.trainings.enums.LevelType;
 import cz.cyberrange.platform.training.api.dto.UserRefDTO;
 import cz.cyberrange.platform.training.api.dto.trainingdefinition.TrainingDefinitionMitreTechniquesDTO;
 import cz.cyberrange.platform.training.api.dto.visualization.AbstractLevelVisualizationDTO;
@@ -44,6 +29,20 @@ import cz.cyberrange.platform.training.api.enums.LevelState;
 import cz.cyberrange.platform.training.api.responses.PageResultResource;
 import cz.cyberrange.platform.training.api.responses.SandboxAnswersInfo;
 import cz.cyberrange.platform.training.api.responses.VariantAnswer;
+import cz.cyberrange.platform.training.opensearch.model.AbstractAuditPOJO;
+import cz.cyberrange.platform.training.opensearch.model.AssessmentAnswers;
+import cz.cyberrange.platform.training.opensearch.model.CorrectAnswerSubmitted;
+import cz.cyberrange.platform.training.opensearch.model.CorrectPasskeySubmitted;
+import cz.cyberrange.platform.training.opensearch.model.HintTaken;
+import cz.cyberrange.platform.training.opensearch.model.LevelCompleted;
+import cz.cyberrange.platform.training.opensearch.model.LevelStarted;
+import cz.cyberrange.platform.training.opensearch.model.SolutionDisplayed;
+import cz.cyberrange.platform.training.opensearch.model.TrainingRunEnded;
+import cz.cyberrange.platform.training.opensearch.model.TrainingRunResumed;
+import cz.cyberrange.platform.training.opensearch.model.TrainingRunStarted;
+import cz.cyberrange.platform.training.opensearch.model.WrongAnswerSubmitted;
+import cz.cyberrange.platform.training.opensearch.model.WrongPasskeySubmitted;
+import cz.cyberrange.platform.training.opensearch.model.enums.EventLevelType;
 import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
 import cz.cyberrange.platform.training.persistence.model.AccessLevel;
 import cz.cyberrange.platform.training.persistence.model.AssessmentLevel;
@@ -66,7 +65,7 @@ import cz.cyberrange.platform.training.service.services.TrainingRunService;
 import cz.cyberrange.platform.training.service.services.UserService;
 import cz.cyberrange.platform.training.service.services.VisualizationService;
 import cz.cyberrange.platform.training.service.services.api.AnswersStorageApiService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -100,7 +99,7 @@ public class VisualizationFacade {
   private final TrainingRunService trainingRunService;
   private final VisualizationService visualizationService;
   private final AnswersStorageApiService answersStorageApiService;
-  private final ElasticsearchApiService elasticsearchApiService;
+  private final OpenSearchApiService opensearchApiService;
   private final UserService userService;
   private final LevelMapper levelMapper;
 
@@ -120,7 +119,7 @@ public class VisualizationFacade {
       TrainingRunService trainingRunService,
       VisualizationService visualizationService,
       AnswersStorageApiService answersStorageApiService,
-      ElasticsearchApiService elasticsearchApiService,
+      OpenSearchApiService opensearchApiService,
       UserService userService,
       LevelMapper levelMapper) {
     this.trainingDefinitionService = trainingDefinitionService;
@@ -128,7 +127,7 @@ public class VisualizationFacade {
     this.trainingRunService = trainingRunService;
     this.answersStorageApiService = answersStorageApiService;
     this.visualizationService = visualizationService;
-    this.elasticsearchApiService = elasticsearchApiService;
+    this.opensearchApiService = opensearchApiService;
     this.levelMapper = levelMapper;
     this.userService = userService;
   }
@@ -184,7 +183,7 @@ public class VisualizationFacade {
       Long instanceId, Long trainingRunId) {
     TrainingRun trainingRun = trainingRunService.findById(trainingRunId);
     if (trainingRun.getTrainingInstance().isLocalEnvironment()) {
-      return elasticsearchApiService.findAllConsoleCommandsByAccessTokenAndUserId(
+      return opensearchApiService.findAllConsoleCommandsByAccessTokenAndUserId(
           trainingRun.getTrainingInstance().getAccessToken(),
           trainingRun.getParticipantRef().getUserRefId());
     }
@@ -192,7 +191,7 @@ public class VisualizationFacade {
         trainingRun.getSandboxInstanceRefId() == null
             ? trainingRun.getPreviousSandboxInstanceRefId()
             : trainingRun.getSandboxInstanceRefId();
-    return elasticsearchApiService.findAllConsoleCommandsBySandbox(sandboxIdentifier);
+    return opensearchApiService.findAllConsoleCommandsBySandbox(sandboxIdentifier);
   }
 
   /**
@@ -284,14 +283,14 @@ public class VisualizationFacade {
     visualizationProgressDTO.setLevels(
         getLevelDefinitions(trainingDefinitionOfTrainingRun.getId()));
 
-    Map<Long, Map<Long, List<AbstractAuditPOJO>>> eventsFromElasticsearch =
-        elasticsearchApiService.getAggregatedEventsByTrainingRunsAndLevels(
+    Map<Long, Map<Long, List<AbstractAuditPOJO>>> eventsFromOpenSearch =
+        opensearchApiService.getAggregatedEventsByTrainingRunsAndLevels(
             trainingInstance.getId());
 
     // Player progress
     List<ProgressDTO> playerProgresses = new ArrayList<>();
     for (Map.Entry<Long, Map<Long, List<AbstractAuditPOJO>>> userEvents :
-        eventsFromElasticsearch.entrySet()) {
+        eventsFromOpenSearch.entrySet()) {
       ProgressDTO playerProgress = new ProgressDTO();
 
       Set<Map.Entry<Long, List<AbstractAuditPOJO>>> allUserEventsByLevelId =
@@ -308,7 +307,7 @@ public class VisualizationFacade {
         }
         levelProgress.setStartTime(events.get(levelStartedEventIndex).getTimestamp());
         if (((LevelStarted) events.get(levelStartedEventIndex)).getLevelType()
-            == LevelType.TRAINING) {
+            == EventLevelType.TRAINING) {
           this.countWrongAnswersAndAddTakenHints(levelProgress, events);
           levelProgress.setAnswer(
               answerStaticByLevelId.containsKey(levelProgress.getLevelId())
@@ -546,7 +545,7 @@ public class VisualizationFacade {
 
     for (TrainingInstance trainingInstance : instances) {
       Map<Long, Map<Long, List<AbstractAuditPOJO>>> instanceEvents =
-          elasticsearchApiService.getAggregatedEventsByLevelsAndTrainingRuns(
+          opensearchApiService.getAggregatedEventsByLevelsAndTrainingRuns(
               trainingInstance.getId());
       for (AbstractLevel level : levels) {
         Map<Long, List<AbstractAuditPOJO>> levelEvents = instanceEvents.get(level.getId());
@@ -591,7 +590,7 @@ public class VisualizationFacade {
     TrainingInstanceData trainingInstanceData =
         getTrainingInstanceData(
             trainingInstanceId,
-            elasticsearchApiService::getAggregatedEventsByLevelsAndTrainingRuns,
+            opensearchApiService::getAggregatedEventsByLevelsAndTrainingRuns,
             this::retrieveRunsIdsFromEventsAggregatedByLevelsAndTrainingRuns);
     TrainingInstanceStatistics trainingInstanceStatistics = new TrainingInstanceStatistics();
     TrainingData trainingData =
@@ -648,7 +647,7 @@ public class VisualizationFacade {
     TrainingInstanceData trainingInstanceData =
         getTrainingInstanceData(
             trainingInstanceId,
-            elasticsearchApiService::getAggregatedEventsByTrainingRunsAndLevels,
+            opensearchApiService::getAggregatedEventsByTrainingRunsAndLevels,
             this::retrieveRunIdsFromEventsAggregatedByRunsAndLevels);
 
     return trainingInstanceData.events.entrySet().stream()
@@ -697,7 +696,7 @@ public class VisualizationFacade {
     TrainingInstanceData trainingInstanceData =
         getTrainingInstanceData(
             trainingInstanceId,
-            elasticsearchApiService::getAggregatedEventsByLevelsAndTrainingRuns,
+            opensearchApiService::getAggregatedEventsByLevelsAndTrainingRuns,
             this::retrieveRunsIdsFromEventsAggregatedByLevelsAndTrainingRuns);
     List<LevelTabsLevelDTO> levelTabsData = new ArrayList<>();
     for (AbstractLevel level : trainingInstanceData.levels) {
@@ -782,7 +781,7 @@ public class VisualizationFacade {
     TrainingInstanceData trainingInstanceData =
         getTrainingInstanceData(
             trainingInstanceId,
-            elasticsearchApiService::getAggregatedEventsByTrainingRunsAndLevels,
+            opensearchApiService::getAggregatedEventsByTrainingRunsAndLevels,
             this::retrieveRunIdsFromEventsAggregatedByRunsAndLevels);
 
     TimelineDTO timelineDTO = new TimelineDTO();
@@ -1192,8 +1191,6 @@ public class VisualizationFacade {
         eventDTO.setText("Training run " + levelEvent.getTrainingRunId() + " ended.");
       } else if (levelEvent instanceof TrainingRunResumed) {
         eventDTO.setText("Training run " + levelEvent.getTrainingRunId() + " resumed.");
-      } else if (levelEvent instanceof TrainingRunSurrendered) {
-        eventDTO.setText("Training run " + levelEvent.getTrainingRunId() + " surrendered.");
       } else if (levelEvent instanceof AssessmentAnswers) {
         score -= levelEvent.getActualScoreInLevel();
         eventDTO.setText("Assessment answered.");

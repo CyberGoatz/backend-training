@@ -13,7 +13,7 @@ import javax.persistence.NamedQuery;
 import javax.persistence.Table;
 import java.time.LocalDateTime;
 
-@EqualsAndHashCode
+@EqualsAndHashCode(callSuper = true)
 @Getter
 @Setter
 @ToString

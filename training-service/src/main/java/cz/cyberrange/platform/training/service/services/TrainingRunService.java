@@ -29,7 +29,7 @@ import cz.cyberrange.platform.training.persistence.repository.TrainingRunReposit
 import cz.cyberrange.platform.training.persistence.repository.UserRefRepository;
 import cz.cyberrange.platform.training.service.annotations.transactions.TransactionalWO;
 import cz.cyberrange.platform.training.service.services.api.AnswersStorageApiService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import cz.cyberrange.platform.training.service.services.api.SandboxApiService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,7 +67,7 @@ public class TrainingRunService {
     private final UserRefRepository participantRefRepository;
     private final HintRepository hintRepository;
     private final AuditEventsService auditEventsService;
-    private final ElasticsearchApiService elasticsearchApiService;
+    private final OpenSearchApiService opensearchApiService;
     private final AnswersStorageApiService answersStorageApiService;
     private final SecurityService securityService;
     private final TRAcquisitionLockRepository trAcquisitionLockRepository;
@@ -95,7 +95,7 @@ public class TrainingRunService {
                               UserRefRepository participantRefRepository,
                               HintRepository hintRepository,
                               AuditEventsService auditEventsService,
-                              ElasticsearchApiService elasticsearchApiService,
+                              OpenSearchApiService opensearchApiService,
                               AnswersStorageApiService answersStorageApiService,
                               SecurityService securityService,
                               QuestionAnswerRepository questionAnswerRepository,
@@ -108,7 +108,7 @@ public class TrainingRunService {
         this.participantRefRepository = participantRefRepository;
         this.hintRepository = hintRepository;
         this.auditEventsService = auditEventsService;
-        this.elasticsearchApiService = elasticsearchApiService;
+        this.opensearchApiService = opensearchApiService;
         this.answersStorageApiService = answersStorageApiService;
         this.securityService = securityService;
         this.questionAnswerRepository = questionAnswerRepository;
@@ -159,7 +159,7 @@ public class TrainingRunService {
      * @param trainingRunId training run to delete
      * @param forceDelete   delete training run in a force manner
      */
-    public TrainingRun deleteTrainingRun(Long trainingRunId, boolean forceDelete, boolean deleteDataFromElasticsearch) {
+    public TrainingRun deleteTrainingRun(Long trainingRunId, boolean forceDelete, boolean deleteDataFromOpenSearch) {
         TrainingRun trainingRun = findById(trainingRunId);
         if (!forceDelete && trainingRun.getState().equals(TRState.RUNNING)) {
             throw new EntityConflictException(new EntityErrorDetail(TrainingRun.class, "id", trainingRun.getId().getClass(), trainingRun.getId(),
@@ -167,24 +167,24 @@ public class TrainingRunService {
         }
         questionAnswerRepository.deleteAllByTrainingRunId(trainingRunId);
         submissionRepository.deleteAllByTrainingRunId(trainingRunId);
-        if(deleteDataFromElasticsearch) {
-            deleteDataFromElasticsearch(trainingRun);
+        if(deleteDataFromOpenSearch) {
+            deleteDataFromOpenSearch(trainingRun);
         }
         trAcquisitionLockRepository.deleteByParticipantRefIdAndTrainingInstanceId(trainingRun.getParticipantRef().getUserRefId(), trainingRun.getTrainingInstance().getId());
         trainingRunRepository.delete(trainingRun);
         return trainingRun;
     }
 
-    private void deleteDataFromElasticsearch(TrainingRun trainingRun) {
+    private void deleteDataFromOpenSearch(TrainingRun trainingRun) {
         if(trainingRun.getTrainingInstance().isLocalEnvironment()) {
             String accessToken = trainingRun.getTrainingInstance().getAccessToken();
             Long userId = trainingRun.getParticipantRef().getUserRefId();
-            elasticsearchApiService.deleteCommandsByAccessTokenAndUserId(accessToken, userId);
+            opensearchApiService.deleteCommandsByAccessTokenAndUserId(accessToken, userId);
         } else {
             String sandboxId = trainingRun.getSandboxInstanceRefId() == null ? trainingRun.getPreviousSandboxInstanceRefId() : trainingRun.getSandboxInstanceRefId();
-            elasticsearchApiService.deleteCommandsBySandbox(sandboxId);
+            opensearchApiService.deleteCommandsBySandbox(sandboxId);
         }
-        elasticsearchApiService.deleteEventsFromTrainingRun(trainingRun.getTrainingInstance().getId(), trainingRun.getId());
+        opensearchApiService.deleteEventsFromTrainingRun(trainingRun.getTrainingInstance().getId(), trainingRun.getId());
     }
 
     /**
@@ -694,7 +694,7 @@ public class TrainingRunService {
      * @return resulting boolean
      */
     public boolean checkRunEventLogging(TrainingRun run) {
-        return !elasticsearchApiService.findAllEventsFromTrainingRun(run).isEmpty();
+        return !opensearchApiService.findAllEventsFromTrainingRun(run).isEmpty();
     }
 
     /**
@@ -708,10 +708,10 @@ public class TrainingRunService {
         if (run.getTrainingInstance().isLocalEnvironment()) {
             String accessToken = run.getTrainingInstance().getAccessToken();
             Long userId = run.getParticipantRef().getUserRefId();
-            runCommands = elasticsearchApiService.findAllConsoleCommandsByAccessTokenAndUserId(accessToken, userId);
+            runCommands = opensearchApiService.findAllConsoleCommandsByAccessTokenAndUserId(accessToken, userId);
         } else {
             String sandboxId = run.getSandboxInstanceRefId() == null ? run.getPreviousSandboxInstanceRefId() : run.getSandboxInstanceRefId();
-            runCommands = elasticsearchApiService.findAllConsoleCommandsBySandbox(sandboxId);
+            runCommands = opensearchApiService.findAllConsoleCommandsBySandbox(sandboxId);
         }
 
         return !runCommands.isEmpty();

@@ -16,7 +16,7 @@ import cz.cyberrange.platform.training.persistence.repository.detection.Detected
 import cz.cyberrange.platform.training.persistence.repository.detection.DetectionEventParticipantRepository;
 import cz.cyberrange.platform.training.persistence.repository.detection.ForbiddenCommandsDetectionEventRepository;
 import cz.cyberrange.platform.training.service.services.TrainingRunService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,7 +41,7 @@ public class ForbiddenCommandsService {
     private final DetectedForbiddenCommandRepository detectedForbiddenCommandRepository;
     private final TrainingRunRepository trainingRunRepository;
     private final TrainingRunService trainingRunService;
-    private final ElasticsearchApiService elasticsearchApiService;
+    private final OpenSearchApiService opensearchApiService;
     private final DetectionEventService detectionEventService;
 
     /**
@@ -53,7 +53,7 @@ public class ForbiddenCommandsService {
      * @param detectedForbiddenCommandRepository        the detected forbidden commands repository
      * @param trainingRunRepository                     the training run repository
      * @param trainingRunService                        the training run service
-     * @param elasticsearchApiService                   the elastic search api service
+     * @param opensearchApiService                   the elastic search api service
      * @param detectionEventService                     the detection events service
      */
     @Autowired
@@ -63,7 +63,7 @@ public class ForbiddenCommandsService {
                                     DetectedForbiddenCommandRepository detectedForbiddenCommandRepository,
                                     TrainingRunRepository trainingRunRepository,
                                     TrainingRunService trainingRunService,
-                                    ElasticsearchApiService elasticsearchApiService,
+                                    OpenSearchApiService opensearchApiService,
                                     DetectionEventService detectionEventService) {
         this.submissionRepository = submissionRepository;
         this.forbiddenCommandsDetectionEventRepository = forbiddenCommandsDetectionEventRepository;
@@ -71,7 +71,7 @@ public class ForbiddenCommandsService {
         this.detectedForbiddenCommandRepository = detectedForbiddenCommandRepository;
         this.trainingRunRepository = trainingRunRepository;
         this.trainingRunService = trainingRunService;
-        this.elasticsearchApiService = elasticsearchApiService;
+        this.opensearchApiService = opensearchApiService;
         this.detectionEventService = detectionEventService;
     }
 
@@ -148,7 +148,7 @@ public class ForbiddenCommandsService {
 
     private List<Map<String, Object>> getSubmittedCommandsFromRunInInterval(TrainingRun run, LocalDateTime from, LocalDateTime to) {
         List<Map<String, Object>> submittedCommands;
-        submittedCommands = elasticsearchApiService.findAllConsoleCommandsBySandboxAndTimeRange(
+        submittedCommands = opensearchApiService.findAllConsoleCommandsBySandboxAndTimeRange(
                 run.getSandboxInstanceRefId(),
                 from.atZone(ZoneOffset.UTC).toInstant().toEpochMilli(),
                 to.atZone(ZoneOffset.UTC).toInstant().toEpochMilli());

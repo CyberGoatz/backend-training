@@ -12,10 +12,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>cz.cybersecurityhub.maven</groupId>
-            <artifactId>crczp-elasticsearch-documents</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
         </dependency>
@@ -38,6 +34,11 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cz.cybersecurityhub.maven</groupId>
+            <artifactId>training-opensearch</artifactId>
+            <version>${app-version}</version>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

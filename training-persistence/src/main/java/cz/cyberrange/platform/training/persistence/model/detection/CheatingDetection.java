@@ -17,7 +17,7 @@ import java.util.List;
  * Cheating detections are executed by organizers.
  * Cheating detections are bound to a training instance.
  */
-@EqualsAndHashCode
+@EqualsAndHashCode(callSuper = false)
 @Getter
 @Setter
 @ToString

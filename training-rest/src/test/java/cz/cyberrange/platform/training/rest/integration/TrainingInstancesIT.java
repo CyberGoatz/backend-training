@@ -33,7 +33,7 @@ import cz.cyberrange.platform.training.rest.utils.error.ApiEntityError;
 import cz.cyberrange.platform.training.rest.utils.error.CustomRestExceptionHandlerTraining;
 import cz.cyberrange.platform.training.service.mapping.mapstruct.TrainingInstanceMapperImpl;
 import cz.cyberrange.platform.training.service.mapping.mapstruct.TrainingRunMapperImpl;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -121,7 +121,7 @@ public class TrainingInstancesIT {
     @Qualifier("objMapperRESTApi")
     private ObjectMapper mapper;
     @Autowired
-    private ElasticsearchApiService elasticsearchApiServiceMock;
+    private OpenSearchApiService opensearchApiServiceMock;
     @Autowired
     @Qualifier("userManagementExchangeFunction")
     private ExchangeFunction exchangeFunction;
@@ -484,7 +484,7 @@ public class TrainingInstancesIT {
     public void deleteTrainingInstance() throws Exception {
         futureTrainingInstance.setPoolId(null);
         TrainingInstance tI = trainingInstanceRepository.save(futureTrainingInstance);
-        doNothing().when(elasticsearchApiServiceMock).deleteEventsByTrainingInstanceId(anyLong());
+        doNothing().when(opensearchApiServiceMock).deleteEventsByTrainingInstanceId(anyLong());
 
         mvc.perform(delete("/training-instances/{id}", tI.getId()))
                 .andExpect(status().isOk());

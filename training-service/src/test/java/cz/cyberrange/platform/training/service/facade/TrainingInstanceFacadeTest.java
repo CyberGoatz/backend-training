@@ -31,7 +31,7 @@ import cz.cyberrange.platform.training.service.services.TrainingDefinitionServic
 import cz.cyberrange.platform.training.service.services.TrainingInstanceService;
 import cz.cyberrange.platform.training.service.services.TrainingRunService;
 import cz.cyberrange.platform.training.service.services.UserService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import cz.cyberrange.platform.training.service.services.api.SandboxApiService;
 import cz.cyberrange.platform.training.service.services.api.TrainingFeedbackApiService;
 import cz.cyberrange.platform.training.service.services.detection.CheatingDetectionService;
@@ -83,7 +83,7 @@ public class TrainingInstanceFacadeTest {
     @MockBean
     private CheatingDetectionService cheatingDetectionService;
     @MockBean
-    private ElasticsearchApiService elasticsearchApiService;
+    private OpenSearchApiService opensearchApiService;
     @MockBean
     private TrainingDefinitionService trainingDefinitionService;
     @MockBean
@@ -110,7 +110,7 @@ public class TrainingInstanceFacadeTest {
     public void init() {
         MockitoAnnotations.openMocks(this);
         trainingInstanceFacade = new TrainingInstanceFacade(trainingInstanceService, trainingDefinitionService, trainingRunService,
-                cheatingDetectionService, userService, elasticsearchApiService, securityService, sandboxApiService, trainingInstanceMapper,
+                cheatingDetectionService, userService, opensearchApiService, securityService, sandboxApiService, trainingInstanceMapper,
                 trainingRunMapper, trainingFeedbackApiService);
 
         pageable = PageRequest.of(0, 5);

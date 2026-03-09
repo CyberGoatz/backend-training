@@ -1,14 +1,14 @@
 package cz.cyberrange.platform.training.service.facade;
 
-import cz.cyberrange.platform.events.AbstractAuditPOJO;
 import cz.cyberrange.platform.training.api.dto.visualization.clusteranalysis.HintClusterable;
 import cz.cyberrange.platform.training.api.dto.visualization.clusteranalysis.WrongAnswersClusterable;
 import cz.cyberrange.platform.training.api.exceptions.EntityConflictException;
 import cz.cyberrange.platform.training.api.exceptions.EntityErrorDetail;
+import cz.cyberrange.platform.training.opensearch.model.AbstractAuditPOJO;
 import cz.cyberrange.platform.training.persistence.model.TrainingInstance;
 import cz.cyberrange.platform.training.service.services.ClusterAnalysisService;
 import cz.cyberrange.platform.training.service.services.TrainingInstanceService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import org.apache.commons.math3.stat.clustering.Cluster;
 import org.apache.commons.math3.stat.clustering.EuclideanDoublePoint;
 import org.slf4j.Logger;
@@ -28,14 +28,14 @@ public class ClusterAnalysisFacade {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    private final ElasticsearchApiService elasticsearchApiService;
+    private final OpenSearchApiService opensearchApiService;
     private final ClusterAnalysisService clusterAnalysisService;
     private final TrainingInstanceService trainingInstanceService;
 
-    public ClusterAnalysisFacade(ElasticsearchApiService elasticsearchApiService,
+    public ClusterAnalysisFacade(OpenSearchApiService opensearchApiService,
                                  ClusterAnalysisService clusterAnalysisService,
                                  TrainingInstanceService trainingInstanceService) {
-        this.elasticsearchApiService = elasticsearchApiService;
+        this.opensearchApiService = opensearchApiService;
         this.clusterAnalysisService = clusterAnalysisService;
         this.trainingInstanceService = trainingInstanceService;
     }
@@ -154,10 +154,10 @@ public class ClusterAnalysisFacade {
             List<TrainingInstance> trainingInstances = trainingInstanceService.findAllByIds(instanceIds);
             checkForInstancesOfDifferentDefinition(trainingInstances, definitionId);
             events = trainingInstances.stream()
-                    .flatMap(ti -> elasticsearchApiService.findAllEventsFromTrainingInstance(ti).stream())
+                    .flatMap(ti -> opensearchApiService.findAllEventsFromTrainingInstance(ti).stream())
                     .collect(Collectors.toList());
         } else {
-            events = elasticsearchApiService.findAllEventsFromTrainingDefinition(definitionId);
+            events = opensearchApiService.findAllEventsFromTrainingDefinition(definitionId);
         }
         return levelId == null ? events : filterTrainingEvents(events, levelId);
     }

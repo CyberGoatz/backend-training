@@ -1,6 +1,6 @@
 package cz.cyberrange.platform.training.service.services.detection;
 
-import cz.cyberrange.platform.events.AbstractAuditPOJO;
+import cz.cyberrange.platform.training.opensearch.model.AbstractAuditPOJO;
 import cz.cyberrange.platform.training.persistence.model.Submission;
 import cz.cyberrange.platform.training.persistence.model.TrainingLevel;
 import cz.cyberrange.platform.training.persistence.model.TrainingRun;
@@ -14,7 +14,7 @@ import cz.cyberrange.platform.training.persistence.repository.TrainingRunReposit
 import cz.cyberrange.platform.training.persistence.repository.detection.NoCommandsDetectionEventRepository;
 import cz.cyberrange.platform.training.service.services.TrainingInstanceService;
 import cz.cyberrange.platform.training.service.services.TrainingRunService;
-import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
+import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +42,7 @@ public class NoCommandsService {
     private final NoCommandsDetectionEventRepository noCommandsDetectionEventRepository;
     private final TrainingRunService trainingRunService;
     private final TrainingInstanceService trainingInstanceService;
-    private final ElasticsearchApiService elasticsearchApiService;
+    private final OpenSearchApiService opensearchApiService;
     private final DetectionEventService detectionEventService;
 
     /**
@@ -54,7 +54,7 @@ public class NoCommandsService {
      * @param noCommandsDetectionEventRepository the no commands detection event repository
      * @param trainingRunService                 the training run service
      * @param trainingInstanceService            the training instance service
-     * @param elasticsearchApiService            the elastic search api service
+     * @param opensearchApiService            the elastic search api service
      */
     @Autowired
     public NoCommandsService(TrainingLevelRepository trainingLevelRepository,
@@ -62,7 +62,7 @@ public class NoCommandsService {
                              SubmissionRepository submissionRepository,
                              NoCommandsDetectionEventRepository noCommandsDetectionEventRepository,
                              TrainingRunService trainingRunService,
-                             ElasticsearchApiService elasticsearchApiService,
+                             OpenSearchApiService opensearchApiService,
                              TrainingInstanceService trainingInstanceService,
                              DetectionEventService detectionEventService) {
         this.trainingLevelRepository = trainingLevelRepository;
@@ -70,7 +70,7 @@ public class NoCommandsService {
         this.submissionRepository = submissionRepository;
         this.noCommandsDetectionEventRepository = noCommandsDetectionEventRepository;
         this.trainingRunService = trainingRunService;
-        this.elasticsearchApiService = elasticsearchApiService;
+        this.opensearchApiService = opensearchApiService;
         this.trainingInstanceService = trainingInstanceService;
         this.detectionEventService = detectionEventService;
     }
@@ -137,7 +137,7 @@ public class NoCommandsService {
 
     private void executeNoCommandsDetectionForRun(Map<Long, TrainingLevel> trainingLevelsById, Map<Long, List<Submission>> detectedSubmissionsByLevels, TrainingRun run) {
         List<Submission> submissions;
-        List<AbstractAuditPOJO> events = elasticsearchApiService.findAllEventsFromTrainingRun(run);
+        List<AbstractAuditPOJO> events = opensearchApiService.findAllEventsFromTrainingRun(run);
         submissions = submissionRepository.getCorrectSubmissionsOfTrainingRunSorted(run.getId());
         for (int i = 0; i < submissions.size() - 1; i++) {
             evaluateNoCommandsSubmissionsOfTrainingRun(trainingLevelsById, detectedSubmissionsByLevels, run, submissions, events, i);
@@ -172,7 +172,7 @@ public class NoCommandsService {
     private boolean evalCheatOfNoCommands(String sandboxId, LocalDateTime from, Submission submission) {
         long fromMilli = from.atZone(ZoneOffset.UTC).toInstant().toEpochMilli();
         long toMilli = submission.getDate().atZone(ZoneOffset.UTC).toInstant().toEpochMilli();
-        return elasticsearchApiService.findAllConsoleCommandsBySandboxAndTimeRange(sandboxId, fromMilli, toMilli).isEmpty();
+        return opensearchApiService.findAllConsoleCommandsBySandboxAndTimeRange(sandboxId, fromMilli, toMilli).isEmpty();
     }
 
     private void auditNoCommandsEvent(Submission submission, CheatingDetection cd, Set<DetectionEventParticipant> participants) {
