@@ -1,24 +1,26 @@
-package cz.cyberrange.platform.training.elasticsearch.service.config;
+package cz.cyberrange.platform.training.opensearch.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * The type Object mapper config elasticsearch.
+ * Configuration class for object mapper of OpenSearch logging.
  */
 @Configuration
-public class ObjectMapperConfigElasticsearch {
+@ComponentScan(basePackages = {"cz.cyberrange.platform.training.opensearch.logging"})
+public class ObjectMapperConfigOpenSearch {
 
     /**
      * Object mapper object mapper.
      *
      * @return the object mapper
      */
-    @Bean("objMapperForElasticsearch")
+    @Bean("objMapperForOpenSearch")
     public ObjectMapper objectMapper() {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.setPropertyNamingStrategy(new PropertyNamingStrategies.SnakeCaseStrategy());

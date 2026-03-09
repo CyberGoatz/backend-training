@@ -8,14 +8,10 @@
         <version>${app-version}</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <artifactId>training-elasticsearch</artifactId>
+    <artifactId>training-opensearch</artifactId>
     <packaging>jar</packaging>
 
     <dependencies>
-        <dependency>
-            <groupId>cz.cybersecurityhub.maven</groupId>
-            <artifactId>crczp-elasticsearch-documents</artifactId>
-        </dependency>
         <!--SPRING BOOT STARTERS-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -25,10 +21,25 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
-        <!--COMPILE (DEFAULT SCOPE)-->
+      <dependency>
+        <groupId>org.opensearch.client</groupId>
+        <artifactId>opensearch-rest-client</artifactId>
+        <version>2.19.1</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opensearch.client</groupId>
+        <artifactId>opensearch-java</artifactId>
+        <version>2.19.0</version>
+      </dependency>
         <dependency>
-            <groupId>org.elasticsearch.client</groupId>
-            <artifactId>elasticsearch-rest-high-level-client</artifactId>
+            <groupId>io.springfox</groupId>
+            <artifactId>springfox-swagger2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 
