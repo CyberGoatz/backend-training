@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
@@ -29,19 +30,26 @@ public class OpenSearchSqlService {
   private static final String INSTANCE_INDEX_FIELD = "training_instance_id";
   private static final String RUN_INDEX_FIELD = "training_run_id";
   private static final String SQL_ENDPOINT = "/_sql?format=json";
+  private static final String CURSOR_FIELD = "cursor";
+  private static final String FETCH_SIZE_FIELD = "fetch_size";
 
   private final RestClient restClient;
   private final ObjectMapper jacksonObjectMapper;
+  private final int maxResultCount;
 
   /**
    * @param restClient the OpenSearch low-level {@link RestClient}
    * @param jacksonObjectMapper the Jackson {@link ObjectMapper}
+   * @param maxResultCount the maximum number of rows a single query may return in a single response
    */
   @Autowired
   public OpenSearchSqlService(
-      @Qualifier("openSearchClient") RestClient restClient, ObjectMapper jacksonObjectMapper) {
+      @Qualifier("openSearchClient") RestClient restClient,
+      ObjectMapper jacksonObjectMapper,
+      @Value("${opensearch.max-result-count}") int maxResultCount) {
     this.restClient = restClient;
     this.jacksonObjectMapper = jacksonObjectMapper;
+    this.maxResultCount = maxResultCount;
   }
 
   /**
@@ -59,25 +67,27 @@ public class OpenSearchSqlService {
    * The resulting filter is: {@code training_instance_id IN (allowedInstanceIds) OR training_run_id
    * IN (allowedRunIds)}
    *
-   * <p>If both lists are empty, an empty object is returned (deny all).
+   * <p>If both lists are empty, an empty {@link OpenSearchQueryResult} is returned (deny all).
    *
    * @param sqlQuery the OpenSearch SQL compatible query to execute
    * @param allowedInstanceIds list of instance IDs the user has access to (organizer role)
    * @param allowedRunIds list of run IDs the user has access to (trainee role)
-   * @return a {@link JsonNode} containing the query results, or an empty object if both
-   *     allowedInstanceIds and allowedRunIds are empty
-   * @throws OpenSearchQueryException if an error occurs while executing the query or processing the response
+   * @return an {@link OpenSearchQueryResult} containing the page data and pagination metadata, or a
+   *     result wrapping an empty object if both allowedInstanceIds and allowedRunIds are empty
+   * @throws OpenSearchQueryException if an error occurs while executing the query or processing the
+   *     response
    * @throws OpenSearchSerializeException if an error occurs while parsing the response JSON
    */
-  public JsonNode executeSqlQueryWithAccessControl(
+  public OpenSearchQueryResult executeSqlQueryWithAccessControl(
       String sqlQuery,
       @Nullable Collection<Long> allowedInstanceIds,
       @Nullable Collection<Long> allowedRunIds)
       throws OpenSearchQueryException, OpenSearchSerializeException {
-    boolean hasInstances = allowedInstanceIds != null && !allowedInstanceIds.isEmpty();
-    boolean hasRuns = allowedRunIds != null && !allowedRunIds.isEmpty();
-    if (!hasInstances && !hasRuns) {
-      return jacksonObjectMapper.createObjectNode();
+    boolean hasNoInstancesAvailable = allowedInstanceIds == null || allowedInstanceIds.isEmpty();
+    boolean hasNoRunsAvailable = allowedRunIds == null || allowedRunIds.isEmpty();
+    if (hasNoInstancesAvailable && hasNoRunsAvailable) {
+      // No access to any instance or run, return empty result without querying OpenSearch
+      return new OpenSearchQueryResult(jacksonObjectMapper.createObjectNode(), false);
     }
     return this.executeSqlQuery(sqlQuery, this.buildSafeFilter(allowedInstanceIds, allowedRunIds));
   }
@@ -88,14 +98,17 @@ public class OpenSearchSqlService {
    * <p>Please ensure the caller is authorized as admin.
    *
    * @param sqlQuery the OpenSearch SQL compatible query to execute
-   * @return a {@link JsonNode} containing the query results
-   * @throws IOException if an error occurs while executing the query or processing the response
+   * @return an {@link OpenSearchQueryResult} containing the page data and pagination metadata
+   * @throws OpenSearchQueryException if an error occurs while executing the query or processing the
+   *     response
+   * @throws OpenSearchSerializeException if an error occurs while parsing the response JSON
    */
-  public JsonNode executeSqlQueryFromAdmin(String sqlQuery) throws OpenSearchQueryException, OpenSearchSerializeException {
+  public OpenSearchQueryResult executeSqlQueryFromAdmin(String sqlQuery)
+      throws OpenSearchQueryException, OpenSearchSerializeException {
     return this.executeSqlQuery(sqlQuery, null);
   }
 
-  private JsonNode executeSqlQuery(String sqlQuery, @Nullable JsonNode filter)
+  private OpenSearchQueryResult executeSqlQuery(String sqlQuery, @Nullable JsonNode filter)
       throws OpenSearchQueryException, OpenSearchSerializeException {
     String requestBody = buildRequestBody(sqlQuery, filter);
     Request request = new Request("POST", SQL_ENDPOINT);
@@ -104,19 +117,24 @@ public class OpenSearchSqlService {
     try {
       Response response = restClient.performRequest(request);
       String responseBody = EntityUtils.toString(response.getEntity());
-      return jacksonObjectMapper.readTree(responseBody);
+      JsonNode result = jacksonObjectMapper.readTree(responseBody);
+      boolean hasMore = result.has(CURSOR_FIELD);
+      return new OpenSearchQueryResult(result, hasMore);
     } catch (JsonProcessingException e) {
       logger.error("Failed to parse OpenSearch SQL response JSON", e);
       throw new OpenSearchSerializeException("Failed to parse OpenSearch SQL response JSON", e);
     } catch (IOException e) {
-      logger.error("Failed to execute SQL query with access control. Query: {}, access filter: {}",
-          sqlQuery, filter, e);
-      throw new OpenSearchQueryException("Failed to execute SQL query with access control", e);
+      logger.error(
+          "Failed to execute SQL query. Query: {}, access filter: {}", sqlQuery, filter, e);
+      throw new OpenSearchQueryException("Failed to execute SQL query", e);
     }
   }
 
   /**
    * Builds the JSON request body for the SQL query, including the optional filter.
+   *
+   * <p>Sets {@code fetch_size} to {@code maxResultCount} so that a {@code cursor} field in the
+   * response unambiguously signals that more rows exist beyond the current page.
    *
    * @param sqlQuery the SQL query to execute
    * @param filter an optional {@link JsonNode} representing the filter to apply
@@ -125,6 +143,7 @@ public class OpenSearchSqlService {
   private String buildRequestBody(String sqlQuery, @Nullable JsonNode filter) {
     ObjectNode requestBody = jacksonObjectMapper.createObjectNode();
     requestBody.put("query", sqlQuery);
+    requestBody.put(FETCH_SIZE_FIELD, maxResultCount);
     if (filter != null) {
       requestBody.set("filter", filter);
     }

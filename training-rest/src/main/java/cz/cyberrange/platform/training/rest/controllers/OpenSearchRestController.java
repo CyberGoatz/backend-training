@@ -1,6 +1,6 @@
 package cz.cyberrange.platform.training.rest.controllers;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import cz.cyberrange.platform.training.api.dto.OpenSearchQueryResultDTO;
 import cz.cyberrange.platform.training.opensearch.logging.exceptions.OpenSearchQueryException;
 import cz.cyberrange.platform.training.opensearch.logging.exceptions.OpenSearchSerializeException;
 import cz.cyberrange.platform.training.rest.utils.error.ApiError;
@@ -12,6 +12,7 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import io.swagger.annotations.Authorization;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,25 +45,35 @@ public class OpenSearchRestController {
   }
 
   @ApiOperation(
-      httpMethod = "POST",
+      httpMethod = "GET",
       value = "Execute SQL query on OpenSearch and return the result.",
+      notes =
+          "Returns up to pageSize rows. When more data is available, hasMore is true and"
+              + " the response status is 206 Partial Content. Use SQL LIMIT / OFFSET in your"
+              + " query to paginate further.",
       produces = MediaType.APPLICATION_JSON_VALUE,
-      response = JsonNode.class,
+      response = OpenSearchQueryResultDTO.class,
       nickname = "sqlQuery")
   @ApiResponses({
     @ApiResponse(
         code = 200,
-        message = "SQL query executed successfully.",
-        response = JsonNode.class),
+        message = "SQL query executed successfully, all results fit within one page.",
+        response = OpenSearchQueryResultDTO.class),
+    @ApiResponse(
+        code = 206,
+        message = "SQL query executed successfully, but more pages are available.",
+        response = OpenSearchQueryResultDTO.class),
     @ApiResponse(
         code = 500,
         message = "Internal server error. An error occurred while processing the SQL query.",
         response = ApiError.class)
   })
   @GetMapping(value = "/sql", produces = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<JsonNode> sqlQuery(
+  public ResponseEntity<OpenSearchQueryResultDTO> sqlQuery(
       @ApiParam(name = "query", value = "SQL query to execute.", required = true) String query)
       throws OpenSearchQueryException, OpenSearchSerializeException {
-    return ResponseEntity.ok(openSearchFacade.handleSqlQuery(query));
+    OpenSearchQueryResultDTO result = openSearchFacade.handleSqlQuery(query);
+    HttpStatus status = result.isHasMore() ? HttpStatus.PARTIAL_CONTENT : HttpStatus.OK;
+    return ResponseEntity.status(status).body(result);
   }
 }
