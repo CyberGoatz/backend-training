@@ -6,6 +6,7 @@ import com.querydsl.core.types.dsl.StringPath;
 import cz.cyberrange.platform.training.persistence.model.QTrainingRun;
 import cz.cyberrange.platform.training.persistence.model.TrainingInstance;
 import cz.cyberrange.platform.training.persistence.model.TrainingRun;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -103,6 +104,14 @@ public interface TrainingRunRepository extends JpaRepository<TrainingRun, Long>,
      * @return the page of all {@link TrainingRun}s accessed by participant
      */
     Page<TrainingRun> findAllByParticipantRefId(@Param("userRefId") Long userRefId, Pageable pageable);
+
+  /**
+   * Find all training runs accessed by participant by their user ref id.
+   *
+   * @param userRefId the participant ref id
+   * @return          the list of all {@link TrainingRun}s accessed by participant
+   */
+  List<TrainingRun> findAllByParticipantRefId(@Param("userRefId") Long userRefId);
 
     /**
      * Find training run by id including current level
