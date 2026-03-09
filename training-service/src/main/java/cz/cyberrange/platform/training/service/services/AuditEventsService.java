@@ -62,7 +62,7 @@ public class AuditEventsService {
         TrainingRunStarted trainingRunStarted = trainingRunStartedBuilder
                 .trainingTime(0L)
                 .build();
-        auditService.saveTrainingRunEvent(trainingRunStarted, 0L);
+        auditService.saveTrainingRunEvent(trainingRunStarted);
     }
 
     /**
@@ -79,7 +79,7 @@ public class AuditEventsService {
                 .maxScore(trainingRun.getCurrentLevel().getMaxScore())
                 .levelTitle(trainingRun.getCurrentLevel().getTitle())
                 .build();
-        auditService.saveTrainingRunEvent(levelStarted, 10L);
+        auditService.saveTrainingRunEvent(levelStarted, 2);
     }
 
     /**
@@ -94,7 +94,7 @@ public class AuditEventsService {
         LevelCompleted levelCompleted = levelCompletedBuilder
                 .levelType(getLevelType(trainingRun.getCurrentLevel()))
                 .build();
-        auditService.saveTrainingRunEvent(levelCompleted, 5L);
+        auditService.saveTrainingRunEvent(levelCompleted, 1);
     }
 
     /**
@@ -112,7 +112,7 @@ public class AuditEventsService {
                 .hintPenaltyPoints(hint.getHintPenalty())
                 .hintTitle(hint.getTitle())
                 .build();
-        auditService.saveTrainingRunEvent(hintTaken, 0L);
+        auditService.saveTrainingRunEvent(hintTaken);
     }
 
     /**
@@ -127,7 +127,7 @@ public class AuditEventsService {
         SolutionDisplayed solutionDisplayed = solutionDisplayedBuilder
                 .penaltyPoints(trainingRun.getMaxLevelScore() - trainingRun.getCurrentPenalty())
                 .build();
-        auditService.saveTrainingRunEvent(solutionDisplayed, 0L);
+        auditService.saveTrainingRunEvent(solutionDisplayed);
     }
 
     /**
@@ -143,7 +143,7 @@ public class AuditEventsService {
         CorrectAnswerSubmitted correctAnswerSubmitted = correctAnswerSubmittedBuilder
                 .answerContent(answer)
                 .build();
-        auditService.saveTrainingRunEvent(correctAnswerSubmitted, 0L);
+        auditService.saveTrainingRunEvent(correctAnswerSubmitted);
     }
 
     /**
@@ -160,7 +160,7 @@ public class AuditEventsService {
                 .answerContent(answer)
                 .count(trainingRun.getIncorrectAnswerCount())
                 .build();
-        auditService.saveTrainingRunEvent(wrongAnswerSubmitted, 0L);
+        auditService.saveTrainingRunEvent(wrongAnswerSubmitted);
     }
 
     /**
@@ -176,7 +176,7 @@ public class AuditEventsService {
         CorrectPasskeySubmitted correctPasskeySubmitted = correctPasskeySubmittedBuilder
                 .passkeyContent(passkey)
                 .build();
-        auditService.saveTrainingRunEvent(correctPasskeySubmitted, 0L);
+        auditService.saveTrainingRunEvent(correctPasskeySubmitted);
     }
 
     /**
@@ -192,7 +192,7 @@ public class AuditEventsService {
         WrongPasskeySubmitted wrongPasskeySubmitted = wrongPasskeySubmittedBuilder
                 .passkeyContent(passkey)
                 .build();
-        auditService.saveTrainingRunEvent(wrongPasskeySubmitted, 0L);
+        auditService.saveTrainingRunEvent(wrongPasskeySubmitted);
     }
 
     /**
@@ -208,7 +208,7 @@ public class AuditEventsService {
         AssessmentAnswers assessmentAnswers = assessmentAnswersBuilder
                 .answers(answers)
                 .build();
-        auditService.saveTrainingRunEvent(assessmentAnswers, 0L);
+        auditService.saveTrainingRunEvent(assessmentAnswers);
     }
 
     /**
@@ -224,7 +224,7 @@ public class AuditEventsService {
                 .startTime(trainingRun.getStartTime().atOffset(ZoneOffset.UTC).toInstant().toEpochMilli())
                 .endTime(System.currentTimeMillis())
                 .build();
-        auditService.saveTrainingRunEvent(trainingRunEnded, 10L);
+        auditService.saveTrainingRunEvent(trainingRunEnded, 3);
     }
 
     /**
@@ -236,7 +236,7 @@ public class AuditEventsService {
         TrainingRunResumed.TrainingRunResumedBuilder<?, ?> trainingRunResumedBuilder = (TrainingRunResumed.TrainingRunResumedBuilder<?, ?>)
                 fillInCommonBuilderFields(trainingRun, TrainingRunResumed.builder());
         TrainingRunResumed trainingRunResumed = trainingRunResumedBuilder.build();
-        auditService.saveTrainingRunEvent(trainingRunResumed, 0L);
+        auditService.saveTrainingRunEvent(trainingRunResumed);
     }
 
     private AbstractAuditPOJO.AbstractAuditPOJOBuilder<?, ?> fillInCommonBuilderFields(TrainingRun trainingRun, AbstractAuditPOJO.AbstractAuditPOJOBuilder<?, ?> builder) {
