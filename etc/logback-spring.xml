@@ -28,7 +28,7 @@
         </encoder>
     </appender>
 
-    <logger name="cz.cyberrange.platform.training.opensearch.service" level="INFO" additivity="false">
+    <logger name="cz.cyberrange.platform.training.opensearch.logging.AuditService" level="INFO" additivity="false">
         <appender-ref ref="AUDIT_CONSOLE"/>
     </logger>
     <logger name="org.springframework.boot" level="ERROR" additivity="false"/>
