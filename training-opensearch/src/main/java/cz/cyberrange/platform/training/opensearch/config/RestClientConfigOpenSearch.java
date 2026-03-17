@@ -13,22 +13,22 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RestClientConfigOpenSearch {
 
-    @Value("${opensearch.protocol}")
-    private String protocol;
+  @Value("${opensearch.protocol}")
+  private String protocol;
 
-    @Value("${opensearch.host}")
-    private String host;
+  @Value("${opensearch.host}")
+  private String host;
 
-    @Value("${opensearch.port}")
-    private int port;
+  @Value("${opensearch.port}")
+  private int port;
 
-    /**
-     * Creates and configures the OpenSearch low-level {@link RestClient}.
-     *
-     * @return a configured {@link RestClient} instance
-     */
-    @Bean("openSearchClient")
-    public RestClient restClient() {
-        return RestClient.builder(new HttpHost(host, port, protocol)).build();
-    }
+  /**
+   * Creates and configures the OpenSearch low-level {@link RestClient}.
+   *
+   * @return a configured {@link RestClient} instance
+   */
+  @Bean("openSearchClient")
+  public RestClient restClient() {
+    return RestClient.builder(new HttpHost(host, port, protocol)).build();
+  }
 }

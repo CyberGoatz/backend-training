@@ -1,19 +1,14 @@
 package cz.cyberrange.platform.training.opensearch.model;
 
-
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
-
-import javax.xml.validation.Schema;
-
 
 /**
  * This class have to be extended when some event should be saved to OpenSearch. It provides 2
@@ -21,7 +16,7 @@ import javax.xml.validation.Schema;
  * generated based on your pojoClass (name of package + class name)
  */
 @ApiModel(
-        value = "Parent class for all audit POJO classes",
+    value = "Parent class for all audit POJO classes",
     description =
         "This class have to be extended when some event should be saved to OpenSearch."
             + " It provides 2 member variables 'timestamp' and 'type': 'timestamp' is generated based on current time 'type'"
@@ -104,7 +99,8 @@ public abstract class AbstractAuditPOJO {
   @JsonProperty(value = "actual_score_in_level", required = true)
   protected int actualScoreInLevel;
 
-  // ID for the training run level that is generated when the training definition with levels is created or uploaded
+  // ID for the training run level that is generated when the training definition with levels is
+  // created or uploaded
   @JsonProperty(value = "level", required = true)
   protected long level;
 

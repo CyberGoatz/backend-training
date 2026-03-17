@@ -1,5 +1,7 @@
 package cz.cyberrange.platform.training.opensearch.logging;
 
+import static org.springframework.util.Assert.notNull;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import cz.cyberrange.platform.training.opensearch.logging.exceptions.OpenSearchSerializeException;
@@ -11,8 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
-
-import static org.springframework.util.Assert.notNull;
 
 /** The type Audit service. */
 @Service
@@ -40,12 +40,13 @@ public class AuditService {
    * @param <T> the type parameter of the class to be saved, must extend {@link AbstractAuditPOJO}
    * @param pojoClass class saved to OpenSearch
    * @param priority used to delay the timestamp of the log entry, so that the priority of events is
-   *     properly reflected in OpenSearch logs (e.g., level answer event should have priority 0, level
-   *     complete which is logged immediately after level answer should have priority 1)
+   *     properly reflected in OpenSearch logs (e.g., level answer event should have priority 0,
+   *     level complete which is logged immediately after level answer should have priority 1)
    * @throws OpenSearchSerializeException exception when writing to OpenSearch logs fails
    */
   @SneakyThrows
-  public <T extends AbstractAuditPOJO> void saveTrainingRunEvent(@NonNull T pojoClass, int priority) {
+  public <T extends AbstractAuditPOJO> void saveTrainingRunEvent(
+      @NonNull T pojoClass, int priority) {
     if (priority < 0) {
       throw new IllegalArgumentException("Order must be non-negative");
     }
@@ -63,8 +64,8 @@ public class AuditService {
   }
 
   /**
-   * Method for saving general class into OpenSearch under specific index and type.
-   * Highest priority is used (see {@link #saveTrainingRunEvent(AbstractAuditPOJO, int)})
+   * Method for saving general class into OpenSearch under specific index and type. Highest priority
+   * is used (see {@link #saveTrainingRunEvent(AbstractAuditPOJO, int)})
    *
    * @param <T> the type parameter of the class to be saved, must extend {@link AbstractAuditPOJO}
    * @param pojoClass class saved to OpenSearch

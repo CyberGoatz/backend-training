@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.SuperBuilder;
 
-
 /** The type Correct Passkey Submitted. */
 @SuperBuilder
 @AllArgsConstructor(access = AccessLevel.PRIVATE)

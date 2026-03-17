@@ -22,7 +22,7 @@ public class TrainingRunEnded extends AbstractAuditPOJO {
   @JsonProperty(value = "start_time", required = true)
   private long startTime;
 
-  //Training run end time
+  // Training run end time
   @JsonProperty(value = "end_time", required = true)
   private long endTime;
 }
