@@ -20,8 +20,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Elastic search rest controller.
- * Responsible for handling requests for executing user queries on OpenSearch.
+ * Elastic search rest controller. Responsible for handling requests for executing user queries on
+ * OpenSearch.
  */
 @Api(
     value = "/opensearch",

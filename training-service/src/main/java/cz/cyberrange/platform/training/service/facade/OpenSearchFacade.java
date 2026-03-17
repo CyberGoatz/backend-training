@@ -3,14 +3,18 @@ package cz.cyberrange.platform.training.service.facade;
 import cz.cyberrange.platform.training.api.dto.OpenSearchQueryResultDTO;
 import cz.cyberrange.platform.training.opensearch.logging.exceptions.OpenSearchQueryException;
 import cz.cyberrange.platform.training.opensearch.logging.exceptions.OpenSearchSerializeException;
-import cz.cyberrange.platform.training.opensearch.querying.OpenSearchSqlService;
+import cz.cyberrange.platform.training.opensearch.sql.OpenSearchSqlService;
+import cz.cyberrange.platform.training.opensearch.sql.QuerySecurityLevel;
+import cz.cyberrange.platform.training.persistence.model.TrainingInstance;
+import cz.cyberrange.platform.training.persistence.model.TrainingRun;
 import cz.cyberrange.platform.training.persistence.model.UserRef;
 import cz.cyberrange.platform.training.persistence.repository.TrainingRunRepository;
 import cz.cyberrange.platform.training.service.enums.RoleTypeSecurity;
 import cz.cyberrange.platform.training.service.mapping.mapstruct.OpenSearchQueryResultMapper;
 import cz.cyberrange.platform.training.service.services.SecurityService;
 import cz.cyberrange.platform.training.service.services.UserService;
-import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
@@ -53,28 +57,33 @@ public class OpenSearchFacade {
   public OpenSearchQueryResultDTO handleSqlQuery(@NonNull String query)
       throws OpenSearchQueryException, OpenSearchSerializeException {
     if (securityService.hasRole(RoleTypeSecurity.ROLE_TRAINING_ADMINISTRATOR)) {
-      return openSearchQueryResultMapper.mapToDTO(opensearchSqlService.executeSqlQueryFromAdmin(query));
+      return openSearchQueryResultMapper.mapToDTO(
+          opensearchSqlService.executeSqlQuery(
+              query, QuerySecurityLevel.RESTRICT_INDEXES_REMOVE_SYSTEM_INFO));
     }
 
-    List<Long> allowedInstanceIds = this.getUserTrainingInstanceIds();
-    List<Long> allowedRunIds = this.getUserTrainingRunIds();
+    Set<Long> allowedInstanceIds = this.getUserTrainingInstanceIds();
+    Set<Long> allowedRunIds = this.getUserTrainingRunIds();
     return openSearchQueryResultMapper.mapToDTO(
-        opensearchSqlService.executeSqlQueryWithAccessControl(
-            query, allowedInstanceIds, allowedRunIds));
+        opensearchSqlService.executeSqlQuery(
+            query,
+            QuerySecurityLevel.RESTRICT_INDEXES_REMOVE_SYSTEM_INFO,
+            allowedInstanceIds,
+            allowedRunIds));
   }
 
-  public List<Long> getUserTrainingRunIds() {
+  private Set<Long> getUserTrainingRunIds() {
     Long user = securityService.getUserRefIdFromUserAndGroup();
     return trainingRunRepository.findAllByParticipantRefId(user).stream()
-        .map(trainingRun -> trainingRun.getId())
-        .toList();
+        .map(TrainingRun::getId)
+        .collect(Collectors.toSet());
   }
 
-  public List<Long> getUserTrainingInstanceIds() {
+  private Set<Long> getUserTrainingInstanceIds() {
     Long userId = securityService.getUserRefIdFromUserAndGroup();
     UserRef userRef = userService.getUserByUserRefId(userId);
     return userRef.getTrainingInstances().stream()
-        .map(trainingInstance -> trainingInstance.getId())
-        .toList();
+        .map(TrainingInstance::getId)
+        .collect(Collectors.toSet());
   }
 }
