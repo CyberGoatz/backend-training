@@ -13,46 +13,46 @@ import lombok.ToString;
 @ToString
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public abstract class VisualizationAbstractLevelDTO {
+  private Long id;
+  private int order;
+  private LevelType levelType;
+
+  public VisualizationAbstractLevelDTO(BaseBuilder<?, ?> timelineLevelBuilder) {
+    this.id = timelineLevelBuilder.id;
+    this.order = timelineLevelBuilder.order;
+    this.levelType = timelineLevelBuilder.levelType;
+  }
+
+  public abstract static class BaseBuilder<
+      T extends VisualizationAbstractLevelDTO, B extends BaseBuilder<?, ?>> {
+    protected T actualClass;
+    protected B actualClassBuilder;
+
+    protected abstract B getActualBuilder();
+
+    protected BaseBuilder() {
+      actualClassBuilder = getActualBuilder();
+    }
+
     private Long id;
     private int order;
     private LevelType levelType;
 
-    public VisualizationAbstractLevelDTO(BaseBuilder<?, ?> timelineLevelBuilder) {
-        this.id = timelineLevelBuilder.id;
-        this.order = timelineLevelBuilder.order;
-        this.levelType = timelineLevelBuilder.levelType;
+    public B id(Long id) {
+      this.id = id;
+      return actualClassBuilder;
     }
 
-    public static abstract class BaseBuilder<T extends VisualizationAbstractLevelDTO, B extends BaseBuilder<?, ?>> {
-        protected T actualClass;
-        protected B actualClassBuilder;
-
-        protected abstract B getActualBuilder();
-
-        protected BaseBuilder() {
-            actualClassBuilder = getActualBuilder();
-        }
-
-
-        private Long id;
-        private int order;
-        private LevelType levelType;
-
-        public B id(Long id) {
-            this.id = id;
-            return actualClassBuilder;
-        }
-
-        public B order(int order) {
-            this.order = order;
-            return actualClassBuilder;
-        }
-
-        public B levelType(LevelType levelType) {
-            this.levelType = levelType;
-            return actualClassBuilder;
-        }
-
-        public abstract VisualizationAbstractLevelDTO build();
+    public B order(int order) {
+      this.order = order;
+      return actualClassBuilder;
     }
+
+    public B levelType(LevelType levelType) {
+      this.levelType = levelType;
+      return actualClassBuilder;
+    }
+
+    public abstract VisualizationAbstractLevelDTO build();
+  }
 }

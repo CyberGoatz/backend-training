@@ -45,7 +45,7 @@
         </suffixPattern>
     </appender>
 
-    <logger name="cz.cyberrange.platform.training.opensearch.service" level="INFO" additivity="false">
+    <logger name="cz.cyberrange.platform.training.opensearch.logging" level="INFO" additivity="false">
         <appender-ref ref="AUDIT_CONSOLE"/>
         <appender-ref ref="CRCZP_SYSLOG"/>
     </logger>

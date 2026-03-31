@@ -8,14 +8,14 @@ import org.springframework.data.repository.query.Param;
 
 public interface AbstractDetectionEventRepositoryCustom {
 
-    /**
-     * Finds all detection events by cheating detection id.
-     *
-     * @param cheatingDetectionId the cheating detection id
-     * @param pageable            the pageable
-     */
-    Page<AbstractDetectionEvent> findAllByCheatingDetectionId(@Param("cheatingDetectionId") Long cheatingDetectionId,
-                                                              @Param("pageable") Pageable pageable,
-                                                              Predicate predicate);
-
+  /**
+   * Finds all detection events by cheating detection id.
+   *
+   * @param cheatingDetectionId the cheating detection id
+   * @param pageable the pageable
+   */
+  Page<AbstractDetectionEvent> findAllByCheatingDetectionId(
+      @Param("cheatingDetectionId") Long cheatingDetectionId,
+      @Param("pageable") Pageable pageable,
+      Predicate predicate);
 }

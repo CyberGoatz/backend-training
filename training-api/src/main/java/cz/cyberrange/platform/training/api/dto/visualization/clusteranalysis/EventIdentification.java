@@ -11,7 +11,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class EventIdentification {
 
-    private Long trainingDefinitionId;
-    private Long trainingInstanceId;
-    private Long trainingRunId;
+  private Long trainingDefinitionId;
+  private Long trainingInstanceId;
+  private Long trainingRunId;
 }

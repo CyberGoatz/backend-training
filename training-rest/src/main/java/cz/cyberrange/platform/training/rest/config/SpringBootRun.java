@@ -8,26 +8,23 @@ import org.springframework.boot.web.servlet.support.SpringBootServletInitializer
 import org.springframework.context.annotation.Import;
 import org.springframework.data.web.config.EnableSpringDataWebSupport;
 
-/**
- * The type Spring boot run.
- */
+/** The type Spring boot run. */
 @SpringBootApplication(scanBasePackages = "cz.cyberrange.platform.training.rest")
 @EnableSpringDataWebSupport
 @Import({WebConfigRestTraining.class, FacadeConfiguration.class})
 public class SpringBootRun extends SpringBootServletInitializer {
 
-    @Override
-    protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
-        return application.sources(SpringBootRun.class);
-    }
+  @Override
+  protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
+    return application.sources(SpringBootRun.class);
+  }
 
-    /**
-     * The entry point of application.
-     *
-     * @param args the input arguments
-     */
-    public static void main(String[] args) {
-        SpringApplication.run(SpringBootRun.class, args);
-    }
-
+  /**
+   * The entry point of application.
+   *
+   * @param args the input arguments
+   */
+  public static void main(String[] args) {
+    SpringApplication.run(SpringBootRun.class, args);
+  }
 }

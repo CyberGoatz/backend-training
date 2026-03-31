@@ -14,6 +14,6 @@ import lombok.ToString;
 @ApiModel(value = "AttachmentExportDTO", description = "An exported attachment of training level.")
 public class AttachmentExportDTO {
 
-    @ApiModelProperty(value = "URL link to file or website.")
-    private String content;
+  @ApiModelProperty(value = "URL link to file or website.")
+  private String content;
 }

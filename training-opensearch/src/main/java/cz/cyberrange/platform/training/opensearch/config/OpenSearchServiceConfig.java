@@ -10,6 +10,6 @@ import org.springframework.context.annotation.Import;
 @ComponentScan(
     basePackages = {
       "cz.cyberrange.platform.training.opensearch.logging",
-        "cz.cyberrange.platform.training.opensearch.sql"
+      "cz.cyberrange.platform.training.opensearch.sql"
     })
 public class OpenSearchServiceConfig {}

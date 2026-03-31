@@ -15,8 +15,8 @@ import lombok.ToString;
 @AllArgsConstructor
 public class LevelTabsHintDTO {
 
-    private Long id;
-    private int order;
-    private String title;
-    private int penalty;
+  private Long id;
+  private int order;
+  private String title;
+  private int penalty;
 }

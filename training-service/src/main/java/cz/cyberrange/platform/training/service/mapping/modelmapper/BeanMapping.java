@@ -1,12 +1,11 @@
 package cz.cyberrange.platform.training.service.mapping.modelmapper;
 
 import cz.cyberrange.platform.training.api.responses.PageResultResource;
-import org.springframework.data.domain.Page;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.springframework.data.domain.Page;
 
 /**
  * That class is used for mapping entities to DTO classes. Example of usage for this mapper shown
@@ -26,22 +25,20 @@ import java.util.Set;
  * }
  * </code>
  * </pre>
- * <p>
- * This example shows mapping list of user entities to list of user DTO classes.
  *
+ * <p>This example shows mapping list of user entities to list of user DTO classes.
  */
 public interface BeanMapping {
 
-    <T> List<T> mapTo(Collection<?> objects, Class<T> mapToClass);
+  <T> List<T> mapTo(Collection<?> objects, Class<T> mapToClass);
 
-    <T> Page<T> mapTo(Page<?> objects, Class<T> mapToClass);
+  <T> Page<T> mapTo(Page<?> objects, Class<T> mapToClass);
 
-    <T> PageResultResource<T> mapToPageResultDTO(Page<?> objects, Class<T> mapToClass);
+  <T> PageResultResource<T> mapToPageResultDTO(Page<?> objects, Class<T> mapToClass);
 
-    <T> Set<T> mapToSet(Collection<?> objects, Class<T> mapToClass);
+  <T> Set<T> mapToSet(Collection<?> objects, Class<T> mapToClass);
 
-    <T> Optional<T> mapToOptional(Object u, Class<T> mapToClass);
+  <T> Optional<T> mapToOptional(Object u, Class<T> mapToClass);
 
-    <T> T mapTo(Object u, Class<T> mapToClass);
-
+  <T> T mapTo(Object u, Class<T> mapToClass);
 }

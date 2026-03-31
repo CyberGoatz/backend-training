@@ -8,8 +8,11 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 @Configuration
 @EnableTransactionManagement
-@ComponentScan(basePackages = {"cz.cyberrange.platform.training.persistence.model", "cz.cyberrange.platform.training.persistence.repository"})
+@ComponentScan(
+    basePackages = {
+      "cz.cyberrange.platform.training.persistence.model",
+      "cz.cyberrange.platform.training.persistence.repository"
+    })
 @EntityScan(basePackages = "cz.cyberrange.platform.training.persistence.model")
 @EnableJpaRepositories(basePackages = "cz.cyberrange.platform.training.persistence.repository")
-public class PersistenceConfig {
-}
+public class PersistenceConfig {}

@@ -2,118 +2,110 @@ package cz.cyberrange.platform.training.api.dto.hint;
 
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
-import lombok.EqualsAndHashCode;
+import java.util.Objects;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
-import java.util.Objects;
-
-/**
- * Encapsulates information about hint that was already taken
- */
-@EqualsAndHashCode
+/** Encapsulates information about hint that was already taken */
 @Getter
 @Setter
 @ToString
-@ApiModel(value = "TakenHintDTO", description = "A taken brief textual description to aid the participant.")
+@ApiModel(
+    value = "TakenHintDTO",
+    description = "A taken brief textual description to aid the participant.")
 public class TakenHintDTO {
 
-    @ApiModelProperty(value = "Main identifier of hint.", example = "1")
-    private Long id;
-    @ApiModelProperty(value = "Short textual description of the hint.", example = "Hint1")
-    private String title;
-    @ApiModelProperty(value = "The information and experiences that are directed towards a participant.", example = "Very good advice")
-    private String content;
-    @ApiModelProperty(value = "The order of hint in training level", example = "1")
-    private int order;
+  @ApiModelProperty(value = "Main identifier of hint.", example = "1")
+  private Long id;
 
-    /**
-     * Gets id.
-     *
-     * @return the id
-     */
-    public Long getId() {
-        return id;
-    }
+  @ApiModelProperty(value = "Short textual description of the hint.", example = "Hint1")
+  private String title;
 
-    /**
-     * Sets id.
-     *
-     * @param id the id
-     */
-    public void setId(Long id) {
-        this.id = id;
-    }
+  @ApiModelProperty(
+      value = "The information and experiences that are directed towards a participant.",
+      example = "Very good advice")
+  private String content;
 
-    /**
-     * Gets title.
-     *
-     * @return the title
-     */
-    public String getTitle() {
-        return title;
-    }
+  @ApiModelProperty(value = "The order of hint in training level", example = "1")
+  private int order;
 
-    /**
-     * Sets title.
-     *
-     * @param title the title
-     */
-    public void setTitle(String title) {
-        this.title = title;
-    }
+  /**
+   * Gets id.
+   *
+   * @return the id
+   */
+  public Long getId() {
+    return id;
+  }
 
-    /**
-     * Gets content.
-     *
-     * @return the content
-     */
-    public String getContent() {
-        return content;
-    }
+  /**
+   * Sets id.
+   *
+   * @param id the id
+   */
+  public void setId(Long id) {
+    this.id = id;
+  }
 
-    /**
-     * Sets content.
-     *
-     * @param content the content
-     */
-    public void setContent(String content) {
-        this.content = content;
-    }
+  /**
+   * Gets title.
+   *
+   * @return the title
+   */
+  public String getTitle() {
+    return title;
+  }
 
-    public int getOrder() {
-        return order;
-    }
+  /**
+   * Sets title.
+   *
+   * @param title the title
+   */
+  public void setTitle(String title) {
+    this.title = title;
+  }
 
-    public void setOrder(int order) {
-        this.order = order;
-    }
+  /**
+   * Gets content.
+   *
+   * @return the content
+   */
+  public String getContent() {
+    return content;
+  }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+  /**
+   * Sets content.
+   *
+   * @param content the content
+   */
+  public void setContent(String content) {
+    this.content = content;
+  }
 
-        TakenHintDTO hintDTO = (TakenHintDTO) o;
+  public int getOrder() {
+    return order;
+  }
 
-        if (!id.equals(hintDTO.id)) return false;
-        if (!title.equals(hintDTO.title)) return false;
-        return content.equals(hintDTO.content);
-    }
+  public void setOrder(int order) {
+    this.order = order;
+  }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, title, content);
-    }
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
 
-    @Override
-    public String toString() {
-        return "TakenHintDTO{" +
-                "id=" + id +
-                ", title='" + title + '\'' +
-                ", content='" + content + '\'' +
-                ", order=" + order +
-                '}';
-    }
+    TakenHintDTO hintDTO = (TakenHintDTO) o;
+
+    if (!id.equals(hintDTO.id)) return false;
+    if (!title.equals(hintDTO.title)) return false;
+    return content.equals(hintDTO.content);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, title, content);
+  }
 }

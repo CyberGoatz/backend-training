@@ -1,17 +1,14 @@
 package cz.cyberrange.platform.training.persistence.model;
 
+import java.util.Objects;
+import javax.persistence.Column;
+import javax.persistence.Embeddable;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import javax.persistence.Column;
-import javax.persistence.Embeddable;
-import java.util.Objects;
-
-/**
- * Class represents information of hint associated with current level of training run
- */
+/** Class represents information of hint associated with current level of training run */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -19,30 +16,33 @@ import java.util.Objects;
 @Embeddable
 public class SolutionInfo {
 
-    @Column(name = "training_level_id", nullable = false)
-    private long trainingLevelId;
-    @Column(name = "solution_content", nullable = false)
-    private String solutionContent;
+  @Column(name = "training_level_id", nullable = false)
+  private long trainingLevelId;
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        SolutionInfo that = (SolutionInfo) o;
-        return trainingLevelId == that.trainingLevelId && solutionContent.equals(that.solutionContent);
-    }
+  @Column(name = "solution_content", nullable = false)
+  private String solutionContent;
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(trainingLevelId, solutionContent);
-    }
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    SolutionInfo that = (SolutionInfo) o;
+    return trainingLevelId == that.trainingLevelId && solutionContent.equals(that.solutionContent);
+  }
 
-    @Override
-    public String toString() {
-        return "SolutionInfo{" +
-                "trainingLevelId=" + trainingLevelId +
-                ", solutionContent='" + solutionContent + '\'' +
-                '}';
-    }
+  @Override
+  public int hashCode() {
+    return Objects.hash(trainingLevelId, solutionContent);
+  }
 
+  @Override
+  public String toString() {
+    return "SolutionInfo{"
+        + "trainingLevelId="
+        + trainingLevelId
+        + ", solutionContent='"
+        + solutionContent
+        + '\''
+        + '}';
+  }
 }

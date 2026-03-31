@@ -3,85 +3,98 @@ package cz.cyberrange.platform.training.api.responses;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class PoolInfoDTO {
-    private Long id;
-    @JsonProperty(value = "definition_id")
-    private Long definitionId;
-    private Long size;
-    @JsonProperty(value = "max_size")
-    private Long maxSize;
-    @JsonProperty(value = "lock_id")
-    private Long lockId;
-    @JsonProperty(value = "rev")
-    private String rev;
-    @JsonProperty(value = "rev_sha")
-    private String revSha;
+  private Long id;
 
-    public Long getId() {
-        return id;
-    }
+  @JsonProperty(value = "definition_id")
+  private Long definitionId;
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+  private Long size;
 
-    public Long getDefinitionId() {
-        return definitionId;
-    }
+  @JsonProperty(value = "max_size")
+  private Long maxSize;
 
-    public void setDefinitionId(Long definitionId) {
-        this.definitionId = definitionId;
-    }
+  @JsonProperty(value = "lock_id")
+  private Long lockId;
 
-    public Long getSize() {
-        return size;
-    }
+  @JsonProperty(value = "rev")
+  private String rev;
 
-    public void setSize(Long size) {
-        this.size = size;
-    }
+  @JsonProperty(value = "rev_sha")
+  private String revSha;
 
-    public Long getMaxSize() {
-        return maxSize;
-    }
+  public Long getId() {
+    return id;
+  }
 
-    public void setMaxSize(Long maxSize) {
-        this.maxSize = maxSize;
-    }
+  public void setId(Long id) {
+    this.id = id;
+  }
 
-    public Long getLockId() {
-        return lockId;
-    }
+  public Long getDefinitionId() {
+    return definitionId;
+  }
 
-    public void setLockId(Long lockId) {
-        this.lockId = lockId;
-    }
+  public void setDefinitionId(Long definitionId) {
+    this.definitionId = definitionId;
+  }
 
-    public String getRev() {
-        return rev;
-    }
+  public Long getSize() {
+    return size;
+  }
 
-    public void setRev(String rev) {
-        this.rev = rev;
-    }
+  public void setSize(Long size) {
+    this.size = size;
+  }
 
-    public String getRevSha() {
-        return revSha;
-    }
+  public Long getMaxSize() {
+    return maxSize;
+  }
 
-    public void setRevSha(String revSha) {
-        this.revSha = revSha;
-    }
+  public void setMaxSize(Long maxSize) {
+    this.maxSize = maxSize;
+  }
 
-    @Override
-    public String toString() {
-        return "PoolInfoDto{" +
-                "id=" + id +
-                ", definitionId=" + definitionId +
-                ", size=" + size +
-                ", maxSize=" + maxSize +
-                ", lockId=" + lockId +
-                ", rev=" + rev +
-                ", revSha=" + revSha +
-                '}';
-    }
+  public Long getLockId() {
+    return lockId;
+  }
+
+  public void setLockId(Long lockId) {
+    this.lockId = lockId;
+  }
+
+  public String getRev() {
+    return rev;
+  }
+
+  public void setRev(String rev) {
+    this.rev = rev;
+  }
+
+  public String getRevSha() {
+    return revSha;
+  }
+
+  public void setRevSha(String revSha) {
+    this.revSha = revSha;
+  }
+
+  @Override
+  public String toString() {
+    return "PoolInfoDto{"
+        + "id="
+        + id
+        + ", definitionId="
+        + definitionId
+        + ", size="
+        + size
+        + ", maxSize="
+        + maxSize
+        + ", lockId="
+        + lockId
+        + ", rev="
+        + rev
+        + ", revSha="
+        + revSha
+        + '}';
+  }
 }

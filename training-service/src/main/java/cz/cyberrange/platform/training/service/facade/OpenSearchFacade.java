@@ -1,10 +1,9 @@
 package cz.cyberrange.platform.training.service.facade;
 
 import cz.cyberrange.platform.training.api.dto.OpenSearchQueryResultDTO;
-import cz.cyberrange.platform.training.opensearch.logging.exceptions.OpenSearchQueryException;
-import cz.cyberrange.platform.training.opensearch.logging.exceptions.OpenSearchSerializeException;
+import cz.cyberrange.platform.training.opensearch.events.training.logging.exceptions.OpenSearchQueryException;
+import cz.cyberrange.platform.training.opensearch.events.training.logging.exceptions.OpenSearchSerializeException;
 import cz.cyberrange.platform.training.opensearch.sql.OpenSearchSqlService;
-import cz.cyberrange.platform.training.opensearch.sql.QuerySecurityLevel;
 import cz.cyberrange.platform.training.persistence.model.TrainingInstance;
 import cz.cyberrange.platform.training.persistence.model.TrainingRun;
 import cz.cyberrange.platform.training.persistence.model.UserRef;
@@ -17,6 +16,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.NonNull;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -54,27 +55,32 @@ public class OpenSearchFacade {
    * @throws OpenSearchQueryException if an error occurs while executing the query
    * @throws OpenSearchSerializeException if the response cannot be parsed
    */
+  @PreAuthorize(
+      "hasAuthority(T(cz.cyberrange.platform.training.service.enums.RoleTypeSecurity).ROLE_TRAINING_ADMINISTRATOR)"
+          + "or hasAuthority(T(cz.cyberrange.platform.training.service.enums.RoleTypeSecurity).ROLE_TRAINING_TRAINEE)")
   public OpenSearchQueryResultDTO handleSqlQuery(@NonNull String query)
       throws OpenSearchQueryException, OpenSearchSerializeException {
     if (securityService.hasRole(RoleTypeSecurity.ROLE_TRAINING_ADMINISTRATOR)) {
       return openSearchQueryResultMapper.mapToDTO(
-          opensearchSqlService.executeSqlQuery(
-              query, QuerySecurityLevel.RESTRICT_INDEXES_REMOVE_SYSTEM_INFO));
+          opensearchSqlService.executeSqlQueryAsAdmin(query));
     }
 
-    Set<Long> allowedInstanceIds = this.getUserTrainingInstanceIds();
-    Set<Long> allowedRunIds = this.getUserTrainingRunIds();
-    return openSearchQueryResultMapper.mapToDTO(
-        opensearchSqlService.executeSqlQuery(
-            query,
-            QuerySecurityLevel.RESTRICT_INDEXES_REMOVE_SYSTEM_INFO,
-            allowedInstanceIds,
-            allowedRunIds));
+    if (securityService.hasRole(RoleTypeSecurity.ROLE_TRAINING_ORGANIZER)
+        || securityService.hasRole(RoleTypeSecurity.ROLE_TRAINING_TRAINEE)) {
+      Set<Long> allowedInstanceIds = this.getUserTrainingInstanceIds();
+      Set<Long> allowedRunIds = this.getUserTrainingRunIds(allowedInstanceIds);
+      return openSearchQueryResultMapper.mapToDTO(
+          opensearchSqlService.executeSqlQueryWithRestrictions(
+              query, allowedInstanceIds, allowedRunIds));
+    }
+    throw new InsufficientAuthenticationException(
+        "User does not have sufficient permissions to execute OpenSearch queries.");
   }
 
-  private Set<Long> getUserTrainingRunIds() {
+  private Set<Long> getUserTrainingRunIds(Set<Long> allowedInstanceIds) {
     Long user = securityService.getUserRefIdFromUserAndGroup();
     return trainingRunRepository.findAllByParticipantRefId(user).stream()
+        .filter(run -> allowedInstanceIds.contains(run.getTrainingInstance().getId()))
         .map(TrainingRun::getId)
         .collect(Collectors.toSet());
   }

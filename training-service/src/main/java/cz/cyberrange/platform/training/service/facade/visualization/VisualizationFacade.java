@@ -29,20 +29,19 @@ import cz.cyberrange.platform.training.api.enums.LevelState;
 import cz.cyberrange.platform.training.api.responses.PageResultResource;
 import cz.cyberrange.platform.training.api.responses.SandboxAnswersInfo;
 import cz.cyberrange.platform.training.api.responses.VariantAnswer;
-import cz.cyberrange.platform.training.opensearch.model.AbstractAuditPOJO;
-import cz.cyberrange.platform.training.opensearch.model.AssessmentAnswers;
-import cz.cyberrange.platform.training.opensearch.model.CorrectAnswerSubmitted;
-import cz.cyberrange.platform.training.opensearch.model.CorrectPasskeySubmitted;
-import cz.cyberrange.platform.training.opensearch.model.HintTaken;
-import cz.cyberrange.platform.training.opensearch.model.LevelCompleted;
-import cz.cyberrange.platform.training.opensearch.model.LevelStarted;
-import cz.cyberrange.platform.training.opensearch.model.SolutionDisplayed;
-import cz.cyberrange.platform.training.opensearch.model.TrainingRunEnded;
-import cz.cyberrange.platform.training.opensearch.model.TrainingRunResumed;
-import cz.cyberrange.platform.training.opensearch.model.TrainingRunStarted;
-import cz.cyberrange.platform.training.opensearch.model.WrongAnswerSubmitted;
-import cz.cyberrange.platform.training.opensearch.model.WrongPasskeySubmitted;
-import cz.cyberrange.platform.training.opensearch.model.enums.EventLevelType;
+import cz.cyberrange.platform.training.opensearch.events.training.model.AbstractAuditPOJO;
+import cz.cyberrange.platform.training.opensearch.events.training.model.AssessmentAnswered;
+import cz.cyberrange.platform.training.opensearch.events.training.model.CorrectAnswerSubmitted;
+import cz.cyberrange.platform.training.opensearch.events.training.model.HintTaken;
+import cz.cyberrange.platform.training.opensearch.events.training.model.LevelCompleted;
+import cz.cyberrange.platform.training.opensearch.events.training.model.LevelStarted;
+import cz.cyberrange.platform.training.opensearch.events.training.model.SolutionDisplayed;
+import cz.cyberrange.platform.training.opensearch.events.training.model.TrainingRunFinished;
+import cz.cyberrange.platform.training.opensearch.events.training.model.TrainingRunResumed;
+import cz.cyberrange.platform.training.opensearch.events.training.model.TrainingRunStarted;
+import cz.cyberrange.platform.training.opensearch.events.training.model.WrongAnswerSubmitted;
+import cz.cyberrange.platform.training.opensearch.events.training.model.enums.EventLevelType;
+import cz.cyberrange.platform.training.opensearch.query.service.TrainingCommandEventsService;
 import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
 import cz.cyberrange.platform.training.persistence.model.AccessLevel;
 import cz.cyberrange.platform.training.persistence.model.AssessmentLevel;
@@ -65,7 +64,6 @@ import cz.cyberrange.platform.training.service.services.TrainingRunService;
 import cz.cyberrange.platform.training.service.services.UserService;
 import cz.cyberrange.platform.training.service.services.VisualizationService;
 import cz.cyberrange.platform.training.service.services.api.AnswersStorageApiService;
-import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -99,7 +97,7 @@ public class VisualizationFacade {
   private final TrainingRunService trainingRunService;
   private final VisualizationService visualizationService;
   private final AnswersStorageApiService answersStorageApiService;
-  private final OpenSearchApiService opensearchApiService;
+  private final TrainingCommandEventsService trainingCommandEventsService;
   private final UserService userService;
   private final LevelMapper levelMapper;
 
@@ -119,7 +117,7 @@ public class VisualizationFacade {
       TrainingRunService trainingRunService,
       VisualizationService visualizationService,
       AnswersStorageApiService answersStorageApiService,
-      OpenSearchApiService opensearchApiService,
+      TrainingCommandEventsService trainingCommandsService,
       UserService userService,
       LevelMapper levelMapper) {
     this.trainingDefinitionService = trainingDefinitionService;
@@ -127,7 +125,7 @@ public class VisualizationFacade {
     this.trainingRunService = trainingRunService;
     this.answersStorageApiService = answersStorageApiService;
     this.visualizationService = visualizationService;
-    this.opensearchApiService = opensearchApiService;
+    this.trainingCommandEventsService = trainingCommandsService;
     this.levelMapper = levelMapper;
     this.userService = userService;
   }
@@ -182,16 +180,11 @@ public class VisualizationFacade {
   public List<Map<String, Object>> getAllCommandsInTrainingRun(
       Long instanceId, Long trainingRunId) {
     TrainingRun trainingRun = trainingRunService.findById(trainingRunId);
-    if (trainingRun.getTrainingInstance().isLocalEnvironment()) {
-      return opensearchApiService.findAllConsoleCommandsByAccessTokenAndUserId(
-          trainingRun.getTrainingInstance().getAccessToken(),
-          trainingRun.getParticipantRef().getUserRefId());
-    }
     String sandboxIdentifier =
         trainingRun.getSandboxInstanceRefId() == null
             ? trainingRun.getPreviousSandboxInstanceRefId()
             : trainingRun.getSandboxInstanceRefId();
-    return opensearchApiService.findAllConsoleCommandsBySandbox(sandboxIdentifier);
+    return trainingCommandEventsService.findAllConsoleCommandsBySandboxId(sandboxIdentifier);
   }
 
   /**
@@ -284,7 +277,7 @@ public class VisualizationFacade {
         getLevelDefinitions(trainingDefinitionOfTrainingRun.getId()));
 
     Map<Long, Map<Long, List<AbstractAuditPOJO>>> eventsFromOpenSearch =
-        opensearchApiService.getAggregatedEventsByTrainingRunsAndLevels(
+        trainingCommandEventsService.getAggregatedEventsByTrainingRunsAndLevels(
             trainingInstance.getId());
 
     // Player progress
@@ -316,7 +309,6 @@ public class VisualizationFacade {
                       levelProgress.getLevelId(),
                       events.get(0),
                       answerVariableNameByLevelId,
-                      trainingInstance.isLocalEnvironment(),
                       variantAnswersBySandbox));
         }
 
@@ -355,14 +347,11 @@ public class VisualizationFacade {
       Long levelId,
       AbstractAuditPOJO levelEvent,
       Map<Long, String> answerVariableNameByLevelId,
-      boolean isLocalEnvironment,
       Map<String, Map<String, String>> variantAnswersBySandbox) {
     // if local environment is enabled, the sandbox is identified by user ID, otherwise unique
     // sandbox ID is used
-    String sandboxIdentifier =
-        isLocalEnvironment ? String.valueOf(levelEvent.getUserRefId()) : levelEvent.getSandboxId();
     return variantAnswersBySandbox
-        .getOrDefault(sandboxIdentifier, new HashMap<>())
+        .getOrDefault(levelEvent.getSandboxId(), new HashMap<>())
         .get(answerVariableNameByLevelId.get(levelId));
   }
 
@@ -424,10 +413,10 @@ public class VisualizationFacade {
 
   private int getLevelCompletedEventIndex(List<AbstractAuditPOJO> events) {
     AbstractAuditPOJO lastEvent = events.get(events.size() - 1);
-    if (!(lastEvent instanceof LevelCompleted) && !(lastEvent instanceof TrainingRunEnded)) {
+    if (!(lastEvent instanceof LevelCompleted) && !(lastEvent instanceof TrainingRunFinished)) {
       return -1;
     }
-    return lastEvent instanceof TrainingRunEnded ? events.size() - 2 : events.size() - 1;
+    return lastEvent instanceof TrainingRunFinished ? events.size() - 2 : events.size() - 1;
   }
 
   private void countWrongAnswersAndAddTakenHints(
@@ -545,7 +534,7 @@ public class VisualizationFacade {
 
     for (TrainingInstance trainingInstance : instances) {
       Map<Long, Map<Long, List<AbstractAuditPOJO>>> instanceEvents =
-          opensearchApiService.getAggregatedEventsByLevelsAndTrainingRuns(
+          trainingCommandEventsService.getAggregatedEventsByLevelsAndTrainingRuns(
               trainingInstance.getId());
       for (AbstractLevel level : levels) {
         Map<Long, List<AbstractAuditPOJO>> levelEvents = instanceEvents.get(level.getId());
@@ -590,7 +579,7 @@ public class VisualizationFacade {
     TrainingInstanceData trainingInstanceData =
         getTrainingInstanceData(
             trainingInstanceId,
-            opensearchApiService::getAggregatedEventsByLevelsAndTrainingRuns,
+            trainingCommandEventsService::getAggregatedEventsByLevelsAndTrainingRuns,
             this::retrieveRunsIdsFromEventsAggregatedByLevelsAndTrainingRuns);
     TrainingInstanceStatistics trainingInstanceStatistics = new TrainingInstanceStatistics();
     TrainingData trainingData =
@@ -647,7 +636,7 @@ public class VisualizationFacade {
     TrainingInstanceData trainingInstanceData =
         getTrainingInstanceData(
             trainingInstanceId,
-            opensearchApiService::getAggregatedEventsByTrainingRunsAndLevels,
+            trainingCommandEventsService::getAggregatedEventsByTrainingRunsAndLevels,
             this::retrieveRunIdsFromEventsAggregatedByRunsAndLevels);
 
     return trainingInstanceData.events.entrySet().stream()
@@ -673,7 +662,7 @@ public class VisualizationFacade {
                   lastLevelEvent == null ? 0 : lastLevelEvent.getTotalTrainingScore());
               tablePlayerDataDTO.setAssessmentScore(
                   lastLevelEvent == null ? 0 : lastLevelEvent.getTotalAssessmentScore());
-              tablePlayerDataDTO.setFinished(lastLevelEvent instanceof TrainingRunEnded);
+              tablePlayerDataDTO.setFinished(lastLevelEvent instanceof TrainingRunFinished);
               tablePlayerDataDTO.setTrainingTime(
                   lastLevelEvent == null ? 0 : lastLevelEvent.getTrainingTime());
               return tablePlayerDataDTO;
@@ -696,7 +685,7 @@ public class VisualizationFacade {
     TrainingInstanceData trainingInstanceData =
         getTrainingInstanceData(
             trainingInstanceId,
-            opensearchApiService::getAggregatedEventsByLevelsAndTrainingRuns,
+            trainingCommandEventsService::getAggregatedEventsByLevelsAndTrainingRuns,
             this::retrieveRunsIdsFromEventsAggregatedByLevelsAndTrainingRuns);
     List<LevelTabsLevelDTO> levelTabsData = new ArrayList<>();
     for (AbstractLevel level : trainingInstanceData.levels) {
@@ -781,7 +770,7 @@ public class VisualizationFacade {
     TrainingInstanceData trainingInstanceData =
         getTrainingInstanceData(
             trainingInstanceId,
-            opensearchApiService::getAggregatedEventsByTrainingRunsAndLevels,
+            trainingCommandEventsService::getAggregatedEventsByTrainingRunsAndLevels,
             this::retrieveRunIdsFromEventsAggregatedByRunsAndLevels);
 
     TimelineDTO timelineDTO = new TimelineDTO();
@@ -913,7 +902,7 @@ public class VisualizationFacade {
         levelEvents.isEmpty() ? null : levelEvents.get(levelEvents.size() - 1);
     if (!levelEvents.isEmpty()
         && (lastLevelEvent instanceof LevelCompleted
-            || lastLevelEvent instanceof TrainingRunEnded)) {
+            || lastLevelEvent instanceof TrainingRunFinished)) {
       tableLevelBuilder.score(lastLevelEvent.getActualScoreInLevel());
     }
 
@@ -1022,7 +1011,7 @@ public class VisualizationFacade {
               lastEventOfTrainingRun.getValue().getTrainingTime(),
               lastEventOfTrainingRun.getValue().getTotalTrainingScore(),
               lastEventOfTrainingRun.getValue().getTotalAssessmentScore(),
-              lastEventOfTrainingRun.getValue() instanceof TrainingRunEnded));
+              lastEventOfTrainingRun.getValue() instanceof TrainingRunFinished));
     }
     finalResults.setAverageScore(trainingInstanceStatistics.getAverageScore());
     finalResults.setAverageTrainingScore(trainingInstanceStatistics.getAverageTrainingScore());
@@ -1056,8 +1045,7 @@ public class VisualizationFacade {
     return trainingInstanceData;
   }
 
-  private Map<Long, UserRefDTO>
-  getUserRefDTOsFromInstanceEvents(
+  private Map<Long, UserRefDTO> getUserRefDTOsFromInstanceEvents(
       Long trainingInstanceId,
       Map<Long, Map<Long, List<AbstractAuditPOJO>>> trainingInstanceEvents,
       Function<Map<Long, Map<Long, List<AbstractAuditPOJO>>>, Set<Long>>
@@ -1170,15 +1158,10 @@ public class VisualizationFacade {
         eventDTO.setText("Hint '" + ((HintTaken) levelEvent).getHintTitle() + "' taken.");
       } else if (levelEvent instanceof WrongAnswerSubmitted) {
         eventDTO.setText("Wrong answer submitted.");
-      } else if (levelEvent instanceof WrongPasskeySubmitted) {
-        eventDTO.setText("Wrong passkey submitted.");
       } else if (levelEvent instanceof CorrectAnswerSubmitted) {
         score -= levelEvent.getActualScoreInLevel();
         processedEventsData.correctAnswerTime = levelEvent.getTrainingTime();
         eventDTO.setText("Correct answer submitted.");
-      } else if (levelEvent instanceof CorrectPasskeySubmitted) {
-        processedEventsData.correctAnswerTime = levelEvent.getTrainingTime();
-        eventDTO.setText("Correct passkey submitted.");
       } else if (levelEvent instanceof SolutionDisplayed) {
         score -= levelEvent.getActualScoreInLevel();
         eventDTO.setText("Solution displayed.");
@@ -1186,12 +1169,12 @@ public class VisualizationFacade {
       } else if (levelEvent instanceof LevelCompleted) {
         score -= levelEvent.getActualScoreInLevel();
         eventDTO.setText("Level " + levelOrder + " completed.");
-      } else if (levelEvent instanceof TrainingRunEnded) {
+      } else if (levelEvent instanceof TrainingRunFinished) {
         score -= levelEvent.getActualScoreInLevel();
         eventDTO.setText("Training run " + levelEvent.getTrainingRunId() + " ended.");
       } else if (levelEvent instanceof TrainingRunResumed) {
         eventDTO.setText("Training run " + levelEvent.getTrainingRunId() + " resumed.");
-      } else if (levelEvent instanceof AssessmentAnswers) {
+      } else if (levelEvent instanceof AssessmentAnswered) {
         score -= levelEvent.getActualScoreInLevel();
         eventDTO.setText("Assessment answered.");
       }

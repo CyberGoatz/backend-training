@@ -1,5 +1,7 @@
 package cz.cyberrange.platform.training.persistence.model;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import cz.cyberrange.platform.training.persistence.util.TestDataFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -7,27 +9,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 @DataJpaTest
 public class InfoLevelEntityTest {
 
-    @Autowired
-    private TestDataFactory testDataFactory;
-    @Autowired
-    private TestEntityManager entityManager;
+  @Autowired private TestDataFactory testDataFactory;
+  @Autowired private TestEntityManager entityManager;
 
-    private InfoLevel infoLevel;
+  private InfoLevel infoLevel;
 
-    @BeforeEach
-    public void init() {
-        infoLevel = testDataFactory.getInfoLevel1();
-    }
+  @BeforeEach
+  public void init() {
+    infoLevel = testDataFactory.getInfoLevel1();
+  }
 
-    @Test
-    public void saveShouldPersistData() {
-        InfoLevel iL = this.entityManager.persistFlushFind(infoLevel);
-        assertNotNull(iL.getId());
-    }
-
+  @Test
+  public void saveShouldPersistData() {
+    InfoLevel iL = this.entityManager.persistFlushFind(infoLevel);
+    assertNotNull(iL.getId());
+  }
 }

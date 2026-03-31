@@ -5,31 +5,52 @@ import cz.cyberrange.platform.training.api.dto.visualization.commons.PlayerDataW
 
 public class TrainingResultsPlayerDTO extends PlayerDataWithScoreDTO {
 
-    private Boolean finished;
+  private Boolean finished;
 
-    public TrainingResultsPlayerDTO(UserRefDTO userRef, Long trainingRunId, long trainingTime, Integer trainingScore, Integer assessmentScore, Boolean finished) {
-        super(userRef.getUserRefId(), userRef.getUserRefFullName(), userRef.getPicture(), trainingRunId, trainingTime, trainingScore, assessmentScore);
-        this.finished = finished;
-    }
+  public TrainingResultsPlayerDTO(
+      UserRefDTO userRef,
+      Long trainingRunId,
+      long trainingTime,
+      Integer trainingScore,
+      Integer assessmentScore,
+      Boolean finished) {
+    super(
+        userRef.getUserRefId(),
+        userRef.getUserRefFullName(),
+        userRef.getPicture(),
+        trainingRunId,
+        trainingTime,
+        trainingScore,
+        assessmentScore);
+    this.finished = finished;
+  }
 
-    public Boolean getFinished() {
-        return finished;
-    }
+  public Boolean getFinished() {
+    return finished;
+  }
 
-    public void setFinished(Boolean finished) {
-        this.finished = finished;
-    }
+  public void setFinished(Boolean finished) {
+    this.finished = finished;
+  }
 
-    @Override
-    public String toString() {
-        return "TrainingResultsPlayerDTO{" +
-                "id=" + getId() +
-                ", trainingRunId=" + getTrainingRunId() +
-                ", name='" + getName() + '\'' +
-                ", trainingScore=" + getTrainingScore() +
-                ", assessmentScore=" + getAssessmentScore() +
-                ", trainingTime=" + getTrainingTime() +
-                ", finished=" + finished +
-                '}';
-    }
+  @Override
+  public String toString() {
+    return "TrainingResultsPlayerDTO{"
+        + "id="
+        + getId()
+        + ", trainingRunId="
+        + getTrainingRunId()
+        + ", name='"
+        + getName()
+        + '\''
+        + ", trainingScore="
+        + getTrainingScore()
+        + ", assessmentScore="
+        + getAssessmentScore()
+        + ", trainingTime="
+        + getTrainingTime()
+        + ", finished="
+        + finished
+        + '}';
+  }
 }

@@ -4,45 +4,48 @@ import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.Size;
 
 public class DefaultAccessLevel {
-    @NotEmpty(message = "{abstractLevel.title.NotEmpty.message}")
-    private String title;
-    @NotEmpty(message = "{accessLevel.cloudContent.NotEmpty.message}")
-    private String cloudContent;
-    @NotEmpty(message = "{accessLevel.localContent.NotEmpty.message}")
-    private String localContent;
-    @Size(max = 50, message = "{accessLevel.passkey.Size.message}")
-    @NotEmpty(message = "{accessLevel.passkey.NotEmpty.message}")
-    private String passkey;
+  @NotEmpty(message = "{abstractLevel.title.NotEmpty.message}")
+  private String title;
 
-    public String getTitle() {
-        return title;
-    }
+  @NotEmpty(message = "{accessLevel.cloudContent.NotEmpty.message}")
+  private String cloudContent;
 
-    public void setTitle(String title) {
-        this.title = title;
-    }
+  @NotEmpty(message = "{accessLevel.localContent.NotEmpty.message}")
+  private String localContent;
 
-    public String getCloudContent() {
-        return cloudContent;
-    }
+  @Size(max = 50, message = "{accessLevel.passkey.Size.message}")
+  @NotEmpty(message = "{accessLevel.passkey.NotEmpty.message}")
+  private String passkey;
 
-    public void setCloudContent(String cloudContent) {
-        this.cloudContent = cloudContent;
-    }
+  public String getTitle() {
+    return title;
+  }
 
-    public String getLocalContent() {
-        return localContent;
-    }
+  public void setTitle(String title) {
+    this.title = title;
+  }
 
-    public void setLocalContent(String localContent) {
-        this.localContent = localContent;
-    }
+  public String getCloudContent() {
+    return cloudContent;
+  }
 
-    public String getPasskey() {
-        return passkey;
-    }
+  public void setCloudContent(String cloudContent) {
+    this.cloudContent = cloudContent;
+  }
 
-    public void setPasskey(String passkey) {
-        this.passkey = passkey;
-    }
+  public String getLocalContent() {
+    return localContent;
+  }
+
+  public void setLocalContent(String localContent) {
+    this.localContent = localContent;
+  }
+
+  public String getPasskey() {
+    return passkey;
+  }
+
+  public void setPasskey(String passkey) {
+    this.passkey = passkey;
+  }
 }

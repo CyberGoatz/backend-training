@@ -11,12 +11,11 @@ import lombok.Setter;
 @NoArgsConstructor
 public class EventDTO {
 
-    private String text;
-    private long time;
-    private int score;
+  private String text;
+  private long time;
+  private int score;
 
-    public EventDTO(long time) {
-        this.time = time;
-    }
-
+  public EventDTO(long time) {
+    this.time = time;
+  }
 }

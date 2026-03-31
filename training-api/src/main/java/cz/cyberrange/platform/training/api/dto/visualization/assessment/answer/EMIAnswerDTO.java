@@ -2,15 +2,16 @@ package cz.cyberrange.platform.training.api.dto.visualization.assessment.answer;
 
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
+import java.util.List;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import lombok.experimental.SuperBuilder;
 
-import java.util.List;
-
-@ApiModel(value = "EMIAnswerDTO", description = "Holds an answer data about the specific EMI statement.")
+@ApiModel(
+    value = "EMIAnswerDTO",
+    description = "Holds an answer data about the specific EMI statement.")
 @SuperBuilder
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
@@ -18,6 +19,6 @@ import java.util.List;
 @Setter
 public class EMIAnswerDTO extends AbstractAnswerDTO {
 
-    @ApiModelProperty(value = "List of all available options for EMI statement.")
-    private List<EMIOptionDTO> options;
+  @ApiModelProperty(value = "List of all available options for EMI statement.")
+  private List<EMIOptionDTO> options;
 }

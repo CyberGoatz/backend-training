@@ -3,7 +3,7 @@ package cz.cyberrange.platform.training.api.dto.visualization.progress;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import cz.cyberrange.platform.training.api.enums.LevelState;
-import cz.cyberrange.platform.training.opensearch.model.AbstractAuditPOJO;
+import cz.cyberrange.platform.training.opensearch.events.training.model.AbstractAuditPOJO;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.util.ArrayList;

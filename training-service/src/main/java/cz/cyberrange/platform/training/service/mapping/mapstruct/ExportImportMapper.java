@@ -12,17 +12,23 @@ import org.mapstruct.Mapper;
 import org.mapstruct.ReportingPolicy;
 
 /**
- * The ExportImportMapper is an utility class to map items into data transfer objects. It provides the implementation of mappings between Java bean type ExportImportMapper and
- * DTOs classes. Code is generated during compile time.
- *
+ * The ExportImportMapper is an utility class to map items into data transfer objects. It provides
+ * the implementation of mappings between Java bean type ExportImportMapper and DTOs classes. Code
+ * is generated during compile time.
  */
-@Mapper(componentModel = "spring",
-        uses = {UserRefMapper.class}, unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(
+    componentModel = "spring",
+    uses = {UserRefMapper.class},
+    unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface ExportImportMapper extends ParentMapper {
 
-    ExportTrainingDefinitionAndLevelsDTO mapToDTO(TrainingDefinition entity);
-    TrainingDefinition mapToEntity(ImportTrainingDefinitionDTO dto);
-    TrainingInstanceArchiveDTO mapToDTO(TrainingInstance entity);
-    TrainingRunExportDTO mapToDTO(TrainingRun entity);
-    TrainingRunArchiveDTO mapToArchiveDTO(TrainingRun entity);
+  ExportTrainingDefinitionAndLevelsDTO mapToDTO(TrainingDefinition entity);
+
+  TrainingDefinition mapToEntity(ImportTrainingDefinitionDTO dto);
+
+  TrainingInstanceArchiveDTO mapToDTO(TrainingInstance entity);
+
+  TrainingRunExportDTO mapToDTO(TrainingRun entity);
+
+  TrainingRunArchiveDTO mapToArchiveDTO(TrainingRun entity);
 }

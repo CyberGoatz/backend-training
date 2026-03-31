@@ -1,12 +1,11 @@
 package cz.cyberrange.platform.training.api.dto.archive;
 
+import java.util.HashSet;
+import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-
-import java.util.HashSet;
-import java.util.Set;
 
 @Getter
 @Setter
@@ -14,6 +13,6 @@ import java.util.Set;
 @ToString
 public class QuestionAnswerArchiveDTO {
 
-    private String question;
-    private Set<String> answer = new HashSet<>();
+  private String question;
+  private Set<String> answer = new HashSet<>();
 }

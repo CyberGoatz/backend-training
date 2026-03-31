@@ -2,47 +2,50 @@ package cz.cyberrange.platform.training.api.responses;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/**
- * Represents basic information about Sandbox.
- */
+/** Represents basic information about Sandbox. */
 public class SandboxInfo {
 
-    private String id;
-    @JsonProperty(value = "lock_id")
-    private Integer lockId;
-    @JsonProperty(value = "allocation_unit_id")
-    private Integer allocationUnitId;
+  private String id;
 
-    public String getId() {
-        return id;
-    }
+  @JsonProperty(value = "lock_id")
+  private Integer lockId;
 
-    public void setId(String id) {
-        this.id = id;
-    }
+  @JsonProperty(value = "allocation_unit_id")
+  private Integer allocationUnitId;
 
-    public Integer getLockId() {
-        return lockId;
-    }
+  public String getId() {
+    return id;
+  }
 
-    public void setLockId(Integer lockId) {
-        this.lockId = lockId;
-    }
+  public void setId(String id) {
+    this.id = id;
+  }
 
-    public Integer getAllocationUnitId() {
-        return allocationUnitId;
-    }
+  public Integer getLockId() {
+    return lockId;
+  }
 
-    public void setAllocationUnitId(Integer allocationUnitId) {
-        this.allocationUnitId = allocationUnitId;
-    }
+  public void setLockId(Integer lockId) {
+    this.lockId = lockId;
+  }
 
-    @Override
-    public String toString() {
-        return "SandboxInfo{" +
-                "id=" + id +
-                ", lockId=" + lockId +
-                ", allocationUnitId=" + allocationUnitId +
-                '}';
-    }
+  public Integer getAllocationUnitId() {
+    return allocationUnitId;
+  }
+
+  public void setAllocationUnitId(Integer allocationUnitId) {
+    this.allocationUnitId = allocationUnitId;
+  }
+
+  @Override
+  public String toString() {
+    return "SandboxInfo{"
+        + "id="
+        + id
+        + ", lockId="
+        + lockId
+        + ", allocationUnitId="
+        + allocationUnitId
+        + '}';
+  }
 }

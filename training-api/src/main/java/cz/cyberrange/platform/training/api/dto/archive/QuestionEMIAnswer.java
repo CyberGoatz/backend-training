@@ -16,8 +16,9 @@ import lombok.ToString;
 @ToString
 public class QuestionEMIAnswer {
 
-    @JsonProperty("statementOrder")
-    private Integer statementOrder;
-    @JsonProperty("optionOrder")
-    private Integer optionOrder;
+  @JsonProperty("statementOrder")
+  private Integer statementOrder;
+
+  @JsonProperty("optionOrder")
+  private Integer optionOrder;
 }

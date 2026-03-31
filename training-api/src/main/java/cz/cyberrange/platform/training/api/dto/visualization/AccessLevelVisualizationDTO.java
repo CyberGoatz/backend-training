@@ -16,13 +16,24 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-@ApiModel(value = "AccessLevelVisualizationDTO", description = "Information about access level needed for visualizations.", parent = AbstractLevelExportDTO.class)
+@ApiModel(
+    value = "AccessLevelVisualizationDTO",
+    description = "Information about access level needed for visualizations.",
+    parent = AbstractLevelExportDTO.class)
 public class AccessLevelVisualizationDTO extends AbstractLevelVisualizationDTO {
 
-    @ApiModelProperty(value = "Keyword found in training, used for access next level.", example = "secretAnswer")
-    private String passkey;
-    @ApiModelProperty(value = "The instructions on how to connect to the machine in cloud environment.", example = "Connect using SSH config.")
-    private String cloudContent;
-    @ApiModelProperty(value = "The instructions on how to connect to the machine in local (non-cloud) environment.", example = "Use vagrant SSH connection.")
-    private String localContent;
+  @ApiModelProperty(
+      value = "Keyword found in training, used for access next level.",
+      example = "secretAnswer")
+  private String passkey;
+
+  @ApiModelProperty(
+      value = "The instructions on how to connect to the machine in cloud environment.",
+      example = "Connect using SSH config.")
+  private String cloudContent;
+
+  @ApiModelProperty(
+      value = "The instructions on how to connect to the machine in local (non-cloud) environment.",
+      example = "Use vagrant SSH connection.")
+  private String localContent;
 }

@@ -24,13 +24,20 @@
         </dependency>
         <dependency>
             <groupId>cz.cybersecurityhub.maven</groupId>
-            <artifactId>training-opensearch</artifactId>
+            <artifactId>training-events</artifactId>
+            <version>${app-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>cz.cybersecurityhub.maven</groupId>
+            <artifactId>training-persistence</artifactId>
             <version>${app-version}</version>
         </dependency>
         <dependency> <!-- reuse src/test/java code from persistence module! -->
             <groupId>cz.cybersecurityhub.maven</groupId>
             <artifactId>training-persistence</artifactId>
             <version>${app-version}</version>
+            <scope>test</scope>
+            <classifier>tests</classifier>
         </dependency>
         <!--SPRING BOOT STARTERS-->
         <dependency>

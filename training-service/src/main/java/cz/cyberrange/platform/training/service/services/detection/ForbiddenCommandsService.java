@@ -1,5 +1,7 @@
 package cz.cyberrange.platform.training.service.services.detection;
 
+import static cz.cyberrange.platform.training.service.utils.CheatingDetectionUtils.extractParticipant;
+
 import cz.cyberrange.platform.training.persistence.model.Submission;
 import cz.cyberrange.platform.training.persistence.model.TrainingRun;
 import cz.cyberrange.platform.training.persistence.model.detection.CheatingDetection;
@@ -16,12 +18,6 @@ import cz.cyberrange.platform.training.persistence.repository.detection.Detected
 import cz.cyberrange.platform.training.persistence.repository.detection.DetectionEventParticipantRepository;
 import cz.cyberrange.platform.training.persistence.repository.detection.ForbiddenCommandsDetectionEventRepository;
 import cz.cyberrange.platform.training.service.services.TrainingRunService;
-import cz.cyberrange.platform.training.service.services.api.OpenSearchApiService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -29,186 +25,218 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import static cz.cyberrange.platform.training.service.utils.CheatingDetectionUtils.extractParticipant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Service
 public class ForbiddenCommandsService {
-    private static final Logger LOG = LoggerFactory.getLogger(CheatingDetectionService.class);
-    private final SubmissionRepository submissionRepository;
-    private final ForbiddenCommandsDetectionEventRepository forbiddenCommandsDetectionEventRepository;
-    private final DetectionEventParticipantRepository detectionEventParticipantRepository;
-    private final DetectedForbiddenCommandRepository detectedForbiddenCommandRepository;
-    private final TrainingRunRepository trainingRunRepository;
-    private final TrainingRunService trainingRunService;
-    private final OpenSearchApiService opensearchApiService;
-    private final DetectionEventService detectionEventService;
+  private static final Logger LOG = LoggerFactory.getLogger(CheatingDetectionService.class);
+  private final SubmissionRepository submissionRepository;
+  private final ForbiddenCommandsDetectionEventRepository forbiddenCommandsDetectionEventRepository;
+  private final DetectionEventParticipantRepository detectionEventParticipantRepository;
+  private final DetectedForbiddenCommandRepository detectedForbiddenCommandRepository;
+  private final TrainingRunRepository trainingRunRepository;
+  private final TrainingRunService trainingRunService;
+  private final OpenSearchApiService opensearchApiService;
+  private final DetectionEventService detectionEventService;
 
-    /**
-     * Instantiates a new Cheating detection service.
-     *
-     * @param submissionRepository                      the submission repository
-     * @param forbiddenCommandsDetectionEventRepository the forbidden commands detection event repository
-     * @param detectionEventParticipantRepository       the detection event participant repository
-     * @param detectedForbiddenCommandRepository        the detected forbidden commands repository
-     * @param trainingRunRepository                     the training run repository
-     * @param trainingRunService                        the training run service
-     * @param opensearchApiService                   the elastic search api service
-     * @param detectionEventService                     the detection events service
-     */
-    @Autowired
-    public ForbiddenCommandsService(SubmissionRepository submissionRepository,
-                                    ForbiddenCommandsDetectionEventRepository forbiddenCommandsDetectionEventRepository,
-                                    DetectionEventParticipantRepository detectionEventParticipantRepository,
-                                    DetectedForbiddenCommandRepository detectedForbiddenCommandRepository,
-                                    TrainingRunRepository trainingRunRepository,
-                                    TrainingRunService trainingRunService,
-                                    OpenSearchApiService opensearchApiService,
-                                    DetectionEventService detectionEventService) {
-        this.submissionRepository = submissionRepository;
-        this.forbiddenCommandsDetectionEventRepository = forbiddenCommandsDetectionEventRepository;
-        this.detectionEventParticipantRepository = detectionEventParticipantRepository;
-        this.detectedForbiddenCommandRepository = detectedForbiddenCommandRepository;
-        this.trainingRunRepository = trainingRunRepository;
-        this.trainingRunService = trainingRunService;
-        this.opensearchApiService = opensearchApiService;
-        this.detectionEventService = detectionEventService;
+  /**
+   * Instantiates a new Cheating detection service.
+   *
+   * @param submissionRepository the submission repository
+   * @param forbiddenCommandsDetectionEventRepository the forbidden commands detection event
+   *     repository
+   * @param detectionEventParticipantRepository the detection event participant repository
+   * @param detectedForbiddenCommandRepository the detected forbidden commands repository
+   * @param trainingRunRepository the training run repository
+   * @param trainingRunService the training run service
+   * @param opensearchApiService the openSearch search api service
+   * @param detectionEventService the detection events service
+   */
+  @Autowired
+  public ForbiddenCommandsService(
+      SubmissionRepository submissionRepository,
+      ForbiddenCommandsDetectionEventRepository forbiddenCommandsDetectionEventRepository,
+      DetectionEventParticipantRepository detectionEventParticipantRepository,
+      DetectedForbiddenCommandRepository detectedForbiddenCommandRepository,
+      TrainingRunRepository trainingRunRepository,
+      TrainingRunService trainingRunService,
+      OpenSearchApiService opensearchApiService,
+      DetectionEventService detectionEventService) {
+    this.submissionRepository = submissionRepository;
+    this.forbiddenCommandsDetectionEventRepository = forbiddenCommandsDetectionEventRepository;
+    this.detectionEventParticipantRepository = detectionEventParticipantRepository;
+    this.detectedForbiddenCommandRepository = detectedForbiddenCommandRepository;
+    this.trainingRunRepository = trainingRunRepository;
+    this.trainingRunService = trainingRunService;
+    this.opensearchApiService = opensearchApiService;
+    this.detectionEventService = detectionEventService;
+  }
+
+  /**
+   * finds all forbidden command events of cheating detection
+   *
+   * @param cheatingDetectionId the cheating detection id
+   * @return list of events
+   */
+  public List<ForbiddenCommandsDetectionEvent> findAllForbiddenCommandsEventsOfDetection(
+      Long cheatingDetectionId) {
+    return forbiddenCommandsDetectionEventRepository.findAllByCheatingDetectionId(
+        cheatingDetectionId);
+  }
+
+  /**
+   * finds forbidden command event by id
+   *
+   * @param eventId the event id
+   * @return the event
+   */
+  public ForbiddenCommandsDetectionEvent findForbiddenCommandsEventById(Long eventId) {
+    return forbiddenCommandsDetectionEventRepository.findForbiddenCommandsEventById(eventId);
+  }
+
+  /**
+   * Executes a cheating detection of type FORBIDDEN_COMMANDS
+   *
+   * @param cd the cheating detection
+   */
+  void executeCheatingDetectionOfForbiddenCommands(CheatingDetection cd) {
+    for (var run : trainingRunService.findAllByTrainingInstanceId(cd.getTrainingInstanceId())) {
+      executeForbiddenCommandsMethodForRun(cd, run);
     }
+  }
 
-    /**
-     * finds all forbidden command events of cheating detection
-     *
-     * @param cheatingDetectionId the cheating detection id
-     * @return list of events
-     */
-    public List<ForbiddenCommandsDetectionEvent> findAllForbiddenCommandsEventsOfDetection(Long cheatingDetectionId) {
-        return forbiddenCommandsDetectionEventRepository.findAllByCheatingDetectionId(cheatingDetectionId);
+  private void executeForbiddenCommandsMethodForRun(CheatingDetection cd, TrainingRun run) {
+    List<Submission> submissions;
+    submissions = submissionRepository.getCorrectSubmissionsOfTrainingRunSorted(run.getId());
+    if (submissions.isEmpty()) {
+      return;
     }
-
-    /**
-     * finds forbidden command event by id
-     *
-     * @param eventId the event id
-     * @return the event
-     */
-    public ForbiddenCommandsDetectionEvent findForbiddenCommandsEventById(Long eventId) {
-        return forbiddenCommandsDetectionEventRepository.findForbiddenCommandsEventById(eventId);
+    for (int i = 0; i < submissions.size() + 1; i++) {
+      evaluateForbiddenCommandsForSubmission(cd, run, submissions, i);
     }
+  }
 
-    /**
-     * Executes a cheating detection of type FORBIDDEN_COMMANDS
-     *
-     * @param cd the cheating detection
-     */
-    void executeCheatingDetectionOfForbiddenCommands(CheatingDetection cd) {
-        for (var run : trainingRunService.findAllByTrainingInstanceId(cd.getTrainingInstanceId())) {
-            executeForbiddenCommandsMethodForRun(cd, run);
-        }
-
+  private void evaluateForbiddenCommandsForSubmission(
+      CheatingDetection cd, TrainingRun run, List<Submission> submissions, int submissionIndex) {
+    LocalDateTime from;
+    LocalDateTime to;
+    Submission currentSubmission;
+    if (submissionIndex == submissions.size()) {
+      currentSubmission = submissions.get(submissionIndex - 1);
+      if (run.getState() == TRState.RUNNING) {
+        from = currentSubmission.getDate();
+        to = LocalDateTime.now();
+      } else {
+        return;
+      }
+    } else {
+      currentSubmission = submissions.get(submissionIndex);
+      from =
+          (submissionIndex == 0)
+              ? run.getStartTime()
+              : submissions.get(submissionIndex - 1).getDate();
+      to = currentSubmission.getDate();
     }
+    generateForbiddenCommandEvent(cd, run, from, to, currentSubmission);
+  }
 
-    private void executeForbiddenCommandsMethodForRun(CheatingDetection cd, TrainingRun run) {
-        List<Submission> submissions;
-        submissions = submissionRepository.getCorrectSubmissionsOfTrainingRunSorted(run.getId());
-        if (submissions.isEmpty()) {
-            return;
-        }
-        for (int i = 0; i < submissions.size() + 1; i++) {
-            evaluateForbiddenCommandsForSubmission(cd, run, submissions, i);
-        }
+  private void generateForbiddenCommandEvent(
+      CheatingDetection cd,
+      TrainingRun run,
+      LocalDateTime from,
+      LocalDateTime to,
+      Submission currentSubmission) {
+    List<DetectedForbiddenCommand> forbiddenCommands =
+        evaluateForbiddenCommands(
+            cd.getCommands(), getSubmittedCommandsFromRunInInterval(run, from, to));
+    if (!forbiddenCommands.isEmpty()) {
+      DetectionEventParticipant participant =
+          extractParticipant(
+              currentSubmission, detectionEventService.getUserFullName(currentSubmission));
+      auditForbiddenCommandsEvent(currentSubmission, cd, participant, forbiddenCommands);
     }
+  }
 
-    private void evaluateForbiddenCommandsForSubmission(CheatingDetection cd, TrainingRun run, List<Submission> submissions, int submissionIndex) {
-        LocalDateTime from;
-        LocalDateTime to;
-        Submission currentSubmission;
-        if (submissionIndex == submissions.size()) {
-            currentSubmission = submissions.get(submissionIndex - 1);
-            if (run.getState() == TRState.RUNNING) {
-                from = currentSubmission.getDate();
-                to = LocalDateTime.now();
-            } else {
-                return;
-            }
-        } else {
-            currentSubmission = submissions.get(submissionIndex);
-            from = (submissionIndex == 0) ? run.getStartTime() : submissions.get(submissionIndex - 1).getDate();
-            to = currentSubmission.getDate();
-        }
-        generateForbiddenCommandEvent(cd, run, from, to, currentSubmission);
+  private List<Map<String, Object>> getSubmittedCommandsFromRunInInterval(
+      TrainingRun run, LocalDateTime from, LocalDateTime to) {
+    List<Map<String, Object>> submittedCommands;
+    submittedCommands =
+        opensearchApiService.findAllConsoleCommandsBySandboxAndTimeRange(
+            run.getSandboxInstanceRefId(),
+            from.atZone(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            to.atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
+    return submittedCommands;
+  }
+
+  private List<DetectedForbiddenCommand> evaluateForbiddenCommands(
+      List<ForbiddenCommand> forbiddenCommands, List<Map<String, Object>> submittedCommands) {
+    List<DetectedForbiddenCommand> commandsList = new ArrayList<>();
+    for (var commandMap : submittedCommands) {
+      if (commandMapContainsNull(commandMap)) continue;
+      String command = commandMap.get("cmd").toString();
+      LocalDateTime localDateTime =
+          Instant.parse(commandMap.get("timestamp_str").toString())
+              .atZone(ZoneId.of("UTC"))
+              .toLocalDateTime();
+
+      for (var forbiddenCommand : forbiddenCommands) {
+        detectForbiddenCommands(commandsList, commandMap, command, localDateTime, forbiddenCommand);
+      }
     }
+    return commandsList;
+  }
 
-    private void generateForbiddenCommandEvent(CheatingDetection cd, TrainingRun run, LocalDateTime from, LocalDateTime to, Submission currentSubmission) {
-        List<DetectedForbiddenCommand> forbiddenCommands = evaluateForbiddenCommands(cd.getCommands(), getSubmittedCommandsFromRunInInterval(run, from, to));
-        if (!forbiddenCommands.isEmpty()) {
-            DetectionEventParticipant participant = extractParticipant(currentSubmission, detectionEventService.getUserFullName(currentSubmission));
-            auditForbiddenCommandsEvent(currentSubmission, cd, participant, forbiddenCommands);
-        }
+  private static void detectForbiddenCommands(
+      List<DetectedForbiddenCommand> commandsList,
+      Map<String, Object> commandMap,
+      String command,
+      LocalDateTime localDateTime,
+      ForbiddenCommand forbiddenCommand) {
+    String type = forbiddenCommand.getType() == CommandType.BASH ? "bash-command" : "msf-command";
+    if (commandMap.get("cmd_type").toString().equals(type)
+        && command != null
+        && command.contains(forbiddenCommand.getCommand())) {
+      DetectedForbiddenCommand detectedCommand = new DetectedForbiddenCommand();
+      detectedCommand.setCommand(command);
+      detectedCommand.setType(forbiddenCommand.getType());
+      detectedCommand.setHostname(commandMap.get("hostname").toString());
+      detectedCommand.setOccurredAt(localDateTime);
+      commandsList.add(detectedCommand);
     }
+  }
 
-    private List<Map<String, Object>> getSubmittedCommandsFromRunInInterval(TrainingRun run, LocalDateTime from, LocalDateTime to) {
-        List<Map<String, Object>> submittedCommands;
-        submittedCommands = opensearchApiService.findAllConsoleCommandsBySandboxAndTimeRange(
-                run.getSandboxInstanceRefId(),
-                from.atZone(ZoneOffset.UTC).toInstant().toEpochMilli(),
-                to.atZone(ZoneOffset.UTC).toInstant().toEpochMilli());
-        return submittedCommands;
-    }
+  private static boolean commandMapContainsNull(Map<String, Object> commandMap) {
+    return commandMap == null
+        || commandMap.get("cmd") == null
+        || commandMap.get("cmd_type") == null
+        || commandMap.get("hostname") == null;
+  }
 
-    private List<DetectedForbiddenCommand> evaluateForbiddenCommands(List<ForbiddenCommand> forbiddenCommands, List<Map<String, Object>> submittedCommands) {
-        List<DetectedForbiddenCommand> commandsList = new ArrayList<>();
-        for (var commandMap : submittedCommands) {
-            if (commandMapContainsNull(commandMap)) continue;
-            String command = commandMap.get("cmd").toString();
-            LocalDateTime localDateTime = Instant
-                    .parse(commandMap.get("timestamp_str").toString())
-                    .atZone(ZoneId.of("UTC")).toLocalDateTime();
-
-            for (var forbiddenCommand : forbiddenCommands) {
-                detectForbiddenCommands(commandsList, commandMap, command, localDateTime, forbiddenCommand);
-            }
-        }
-        return commandsList;
-    }
-
-    private static void detectForbiddenCommands(List<DetectedForbiddenCommand> commandsList, Map<String, Object> commandMap, String command, LocalDateTime localDateTime, ForbiddenCommand forbiddenCommand) {
-        String type = forbiddenCommand.getType() == CommandType.BASH ? "bash-command" : "msf-command";
-        if (commandMap.get("cmd_type").toString().equals(type)
-                && command != null
-                && command.contains(forbiddenCommand.getCommand())) {
-            DetectedForbiddenCommand detectedCommand = new DetectedForbiddenCommand();
-            detectedCommand.setCommand(command);
-            detectedCommand.setType(forbiddenCommand.getType());
-            detectedCommand.setHostname(commandMap.get("hostname").toString());
-            detectedCommand.setOccurredAt(localDateTime);
-            commandsList.add(detectedCommand);
-        }
-    }
-
-    private static boolean commandMapContainsNull(Map<String, Object> commandMap) {
-        return commandMap == null ||
-                commandMap.get("cmd") == null ||
-                commandMap.get("cmd_type") == null ||
-                commandMap.get("hostname") == null;
-    }
-
-    private void auditForbiddenCommandsEvent(Submission submission, CheatingDetection cd, DetectionEventParticipant participant,
-                                             List<DetectedForbiddenCommand> detectedForbiddenCommands) {
-        TrainingRun run = submission.getTrainingRun();
-        run.setHasDetectionEvent(true);
-        trainingRunRepository.save(run);
-        ForbiddenCommandsDetectionEvent event = new ForbiddenCommandsDetectionEvent();
-        event.setCommonDetectionEventParameters(submission, cd, DetectionEventType.FORBIDDEN_COMMANDS, 1);
-        event.setCommandCount(detectedForbiddenCommands.size());
-        event.setTrainingRunId(submission.getTrainingRun().getId());
-        event.setParticipants(participant.getParticipantName());
-        Long eventId = forbiddenCommandsDetectionEventRepository.save(event).getId();
-        participant.setDetectionEventId(eventId);
-        detectedForbiddenCommands.forEach(command -> {
-            command.setDetectionEventId(eventId);
-            detectedForbiddenCommandRepository.save(command);
+  private void auditForbiddenCommandsEvent(
+      Submission submission,
+      CheatingDetection cd,
+      DetectionEventParticipant participant,
+      List<DetectedForbiddenCommand> detectedForbiddenCommands) {
+    TrainingRun run = submission.getTrainingRun();
+    run.setHasDetectionEvent(true);
+    trainingRunRepository.save(run);
+    ForbiddenCommandsDetectionEvent event = new ForbiddenCommandsDetectionEvent();
+    event.setCommonDetectionEventParameters(
+        submission, cd, DetectionEventType.FORBIDDEN_COMMANDS, 1);
+    event.setCommandCount(detectedForbiddenCommands.size());
+    event.setTrainingRunId(submission.getTrainingRun().getId());
+    event.setParticipants(participant.getParticipantName());
+    Long eventId = forbiddenCommandsDetectionEventRepository.save(event).getId();
+    participant.setDetectionEventId(eventId);
+    detectedForbiddenCommands.forEach(
+        command -> {
+          command.setDetectionEventId(eventId);
+          detectedForbiddenCommandRepository.save(command);
         });
-        participant.setCheatingDetectionId(cd.getId());
-        detectionEventParticipantRepository.save(participant);
-    }
+    participant.setCheatingDetectionId(cd.getId());
+    detectionEventParticipantRepository.save(participant);
+  }
 }

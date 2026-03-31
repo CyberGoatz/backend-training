@@ -8,9 +8,10 @@ import lombok.Setter;
 import lombok.ToString;
 import lombok.experimental.SuperBuilder;
 
-
-@ApiModel(value = "AbstractAnswerDTO", subTypes = {EMIAnswerDTO.class, FFQAnswerDTO.class, MCQAnswerDTO.class},
-        description = "Superclass for classes EMIAnswerDTO, FFQAnswerDTO, MCQAnswerDTO")
+@ApiModel(
+    value = "AbstractAnswerDTO",
+    subTypes = {EMIAnswerDTO.class, FFQAnswerDTO.class, MCQAnswerDTO.class},
+    description = "Superclass for classes EMIAnswerDTO, FFQAnswerDTO, MCQAnswerDTO")
 @SuperBuilder
 @EqualsAndHashCode
 @Getter
@@ -18,6 +19,6 @@ import lombok.experimental.SuperBuilder;
 @ToString
 public abstract class AbstractAnswerDTO {
 
-    @ApiModelProperty(value = "Text of the answer option", example = "Ubuntu")
-    private String text;
+  @ApiModelProperty(value = "Text of the answer option", example = "Ubuntu")
+  private String text;
 }

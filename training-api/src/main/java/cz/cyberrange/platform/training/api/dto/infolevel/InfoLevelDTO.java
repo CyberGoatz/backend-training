@@ -7,16 +7,18 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
-/**
- * Encapsulates information about info level. Inherits from {@link AbstractLevelDTO}
- *
- */
+/** Encapsulates information about info level. Inherits from {@link AbstractLevelDTO} */
 @Getter
 @Setter
 @ToString
-@ApiModel(value = "InfoLevelDTO", description = "A HTML content for the participant to read.", parent = AbstractLevelDTO.class)
+@ApiModel(
+    value = "InfoLevelDTO",
+    description = "A HTML content for the participant to read.",
+    parent = AbstractLevelDTO.class)
 public class InfoLevelDTO extends AbstractLevelDTO {
 
-    @ApiModelProperty(value = "The information and experiences that are directed towards a participant.", example = "Informational stuff")
-    private String content;
+  @ApiModelProperty(
+      value = "The information and experiences that are directed towards a participant.",
+      example = "Informational stuff")
+  private String content;
 }

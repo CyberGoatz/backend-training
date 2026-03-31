@@ -8,11 +8,10 @@ import org.mapstruct.ReportingPolicy;
 import org.springframework.beans.factory.annotation.Value;
 
 /**
- * MapStruct mapper for converting {@link OpenSearchSqlResult} to {@link
- * OpenSearchQueryResultDTO}.
+ * MapStruct mapper for converting {@link OpenSearchSqlResult} to {@link OpenSearchQueryResultDTO}.
  *
- * <p>The {@code pageSize} field is not present on {@link OpenSearchSqlResult} — it is injected
- * from the {@code opensearch.max-result-count} property and stamped onto the DTO during mapping.
+ * <p>The {@code pageSize} field is not present on {@link OpenSearchSqlResult} — it is injected from
+ * the {@code opensearch.max-result-count} property and stamped onto the DTO during mapping.
  */
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public abstract class OpenSearchQueryResultMapper {
