@@ -24,7 +24,6 @@ import cz.cyberrange.platform.training.persistence.model.TrainingLevel;
 import cz.cyberrange.platform.training.persistence.model.TrainingRun;
 import cz.cyberrange.platform.training.persistence.model.UserRef;
 import cz.cyberrange.platform.training.service.annotations.security.IsOrganizerOrAdmin;
-import cz.cyberrange.platform.training.service.annotations.security.IsTraineeOrAdmin;
 import cz.cyberrange.platform.training.service.annotations.transactions.TransactionalRO;
 import cz.cyberrange.platform.training.service.annotations.transactions.TransactionalWO;
 import cz.cyberrange.platform.training.service.enums.RoleTypeSecurity;
@@ -169,7 +168,7 @@ public class TrainingInstanceFacade {
      * @param pageable  pageable parameter with information about pagination.
      * @return page of all {@link TrainingInstanceCatalogDTO}
      */
-    @IsTraineeOrAdmin
+    @PreAuthorize("isAuthenticated()")
     @TransactionalRO
     public PageResultResource<TrainingInstanceCatalogDTO> findCatalog(Predicate predicate, Pageable pageable) {
         Page<TrainingInstance> trainingInstances = trainingInstanceService.findAll(predicate, pageable);
@@ -182,10 +181,15 @@ public class TrainingInstanceFacade {
     private TrainingInstanceCatalogDTO mapToCatalogDTO(TrainingInstance trainingInstance) {
         TrainingInstanceCatalogDTO dto = trainingInstanceMapper.mapToCatalogDTO(trainingInstance);
         if (!trainingInstance.isLocalEnvironment() && trainingInstance.getPoolId() != null) {
-            PoolInfoDTO poolInfo = sandboxApiService.getPoolInfo(trainingInstance.getPoolId());
-            if (poolInfo != null) {
-                dto.setAvailablePoolSize(poolInfo.getSize());
-                dto.setMaxPoolSize(poolInfo.getMaxSize());
+            try {
+                PoolInfoDTO poolInfo = sandboxApiService.getPoolInfo(trainingInstance.getPoolId());
+                if (poolInfo != null) {
+                    dto.setAvailablePoolSize(poolInfo.getSize());
+                    dto.setMaxPoolSize(poolInfo.getMaxSize());
+                }
+            } catch (MicroserviceApiException ex) {
+                // Learners may not be authorized to read sandbox pool metadata.
+                // Keep the catalog usable and leave pool size fields unknown.
             }
         }
         return dto;
