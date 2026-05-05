@@ -38,6 +38,8 @@ import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiServ
 import cz.cyberrange.platform.training.service.services.api.SandboxApiService;
 import cz.cyberrange.platform.training.service.services.api.TrainingFeedbackApiService;
 import cz.cyberrange.platform.training.service.services.detection.CheatingDetectionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -61,6 +63,7 @@ import java.util.stream.Collectors;
  */
 @Service
 public class TrainingInstanceFacade {
+    private static final Logger LOG = LoggerFactory.getLogger(TrainingInstanceFacade.class);
 
     private final TrainingInstanceService trainingInstanceService;
     private final TrainingDefinitionService trainingDefinitionService;
@@ -187,9 +190,8 @@ public class TrainingInstanceFacade {
                     dto.setAvailablePoolSize(poolInfo.getSize());
                     dto.setMaxPoolSize(poolInfo.getMaxSize());
                 }
-            } catch (MicroserviceApiException ex) {
-                // Learners may not be authorized to read sandbox pool metadata.
-                // Keep the catalog usable and leave pool size fields unknown.
+            } catch (RuntimeException ex) {
+                LOG.debug("Unable to load learner catalog pool availability for pool ID {}.", trainingInstance.getPoolId(), ex);
             }
         }
         return dto;
