@@ -92,7 +92,7 @@ public class SandboxApiService {
         try {
             return sandboxServiceWebClient
                     .get()
-                    .uri("/pools/{poolId}", poolId)
+                    .uri("/pools/{poolId}/availability", poolId)
                     .retrieve()
                     .bodyToMono(PoolInfoDTO.class)
                     .block();
