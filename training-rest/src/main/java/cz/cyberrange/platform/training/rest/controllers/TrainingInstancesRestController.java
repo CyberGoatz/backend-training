@@ -9,6 +9,7 @@ import cz.cyberrange.platform.training.api.dto.UserRefDTO;
 import cz.cyberrange.platform.training.api.dto.run.TrainingRunDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceAssignPoolIdDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceBasicInfoDTO;
+import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceCatalogDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceCreateDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceFindAllResponseDTO;
@@ -67,6 +68,35 @@ public class TrainingInstancesRestController {
                                            ObjectMapper objectMapper) {
         this.trainingInstanceFacade = trainingInstanceFacade;
         this.objectMapper = objectMapper;
+    }
+
+    /**
+     * Get learner-facing Training Instance catalog.
+     *
+     * @param predicate specifies query to database.
+     * @param pageable  pageable parameter with information about pagination.
+     * @param fields    attributes of the object to be returned as the result.
+     * @return Training Instances that authenticated trainees can start with an access token.
+     */
+    @ApiOperation(httpMethod = "GET",
+            value = "Get learner-facing training instance catalog.",
+            response = TrainingInstanceCatalogRestResource.class,
+            nickname = "findTrainingInstanceCatalog",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "The training instance catalog has been found.", response = TrainingInstanceCatalogRestResource.class),
+            @ApiResponse(code = 500, message = "Unexpected condition was encountered.", response = ApiError.class)
+    })
+    @GetMapping(path = "/catalog", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Object> findTrainingInstanceCatalog(@QuerydslPredicate(root = TrainingInstance.class) Predicate predicate,
+                                                              @ApiParam(value = "Pagination support.", required = false)
+                                                              Pageable pageable,
+                                                              @ApiParam(value = "Fields which should be returned in REST API response", required = false)
+                                                              @RequestParam(value = "fields", required = false) String fields) {
+        PageResultResource<TrainingInstanceCatalogDTO> trainingInstanceCatalog = trainingInstanceFacade.findCatalog(predicate, pageable);
+        Squiggly.init(objectMapper, fields);
+        return ResponseEntity.ok(SquigglyUtils.stringify(objectMapper, trainingInstanceCatalog));
     }
 
     /**
@@ -425,6 +455,17 @@ public class TrainingInstancesRestController {
         @JsonProperty(required = true)
         @ApiModelProperty(value = "Retrieved Training Instances from databases.")
         private List<TrainingInstanceFindAllResponseDTO> content;
+        @JsonProperty(required = true)
+        @ApiModelProperty(value = "Pagination including: page number, number of elements in page, size, total elements and total pages.")
+        private Pagination pagination;
+    }
+
+    @ApiModel(value = "TrainingInstanceCatalogRestResource",
+            description = "Content (Retrieved data) and meta information about REST API result page. Including page number, number of elements in page, size of elements, total number of elements and total number of pages")
+    private static class TrainingInstanceCatalogRestResource extends PageResultResource<TrainingInstanceCatalogDTO> {
+        @JsonProperty(required = true)
+        @ApiModelProperty(value = "Retrieved Training Instances from databases.")
+        private List<TrainingInstanceCatalogDTO> content;
         @JsonProperty(required = true)
         @ApiModelProperty(value = "Pagination including: page number, number of elements in page, size, total elements and total pages.")
         private Pagination pagination;

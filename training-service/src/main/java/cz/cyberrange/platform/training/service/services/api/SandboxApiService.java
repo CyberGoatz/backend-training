@@ -83,6 +83,25 @@ public class SandboxApiService {
     }
 
     /**
+     * Gets pool info.
+     *
+     * @param poolId the pool id
+     * @return the pool info
+     */
+    public PoolInfoDTO getPoolInfo(Long poolId) {
+        try {
+            return sandboxServiceWebClient
+                    .get()
+                    .uri("/pools/{poolId}", poolId)
+                    .retrieve()
+                    .bodyToMono(PoolInfoDTO.class)
+                    .block();
+        } catch (CustomWebClientException ex) {
+            throw new MicroserviceApiException("Currently, it is not possible to get pool info (ID: " + poolId + ").", ex);
+        }
+    }
+
+    /**
      * Unlock pool.
      *
      * @param poolId the pool id

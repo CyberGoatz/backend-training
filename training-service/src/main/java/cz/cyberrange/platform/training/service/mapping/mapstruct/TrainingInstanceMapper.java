@@ -2,6 +2,7 @@ package cz.cyberrange.platform.training.service.mapping.mapstruct;
 
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceAssignPoolIdDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceBasicInfoDTO;
+import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceCatalogDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceCreateDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceFindAllResponseDTO;
@@ -39,6 +40,8 @@ public interface TrainingInstanceMapper extends ParentMapper{
     TrainingInstanceDTO mapToDTO(TrainingInstance entity);
 
     TrainingInstanceFindAllResponseDTO mapToFindAllViewDTO(TrainingInstance entity);
+
+    TrainingInstanceCatalogDTO mapToCatalogDTO(TrainingInstance entity);
 
     List<TrainingInstance> mapToList(Collection<TrainingInstanceDTO> dtos);
 
