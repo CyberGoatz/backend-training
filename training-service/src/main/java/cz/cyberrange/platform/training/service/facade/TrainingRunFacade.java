@@ -34,7 +34,6 @@ import cz.cyberrange.platform.training.persistence.model.TrainingRun;
 import cz.cyberrange.platform.training.persistence.model.enums.TRState;
 import cz.cyberrange.platform.training.persistence.model.question.QuestionAnswer;
 import cz.cyberrange.platform.training.service.annotations.security.IsOrganizerOrAdmin;
-import cz.cyberrange.platform.training.service.annotations.security.IsOrganizerOrAdminOrTraineeOfTrainingRun;
 import cz.cyberrange.platform.training.service.annotations.security.IsTrainee;
 import cz.cyberrange.platform.training.service.annotations.security.IsTraineeOrAdmin;
 import cz.cyberrange.platform.training.service.annotations.transactions.TransactionalRO;
@@ -547,7 +546,7 @@ public class TrainingRunFacade {
      * @param trainingRunId id of Training Run which current level gets hint for.
      * @return {@link CorrectAnswerDTO[]}
      */
-    @IsOrganizerOrAdminOrTraineeOfTrainingRun
+    @IsOrganizerOrAdmin
     @TransactionalWO
     public List<CorrectAnswerDTO> getCorrectAnswers(Long trainingRunId) {
         TrainingRun trainingRun = trainingRunService.findByIdWithLevel(trainingRunId);
