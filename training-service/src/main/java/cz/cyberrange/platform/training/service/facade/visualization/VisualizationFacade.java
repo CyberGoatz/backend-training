@@ -47,13 +47,23 @@ import cz.cyberrange.platform.training.api.responses.VariantAnswer;
 import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
 import cz.cyberrange.platform.training.persistence.model.AccessLevel;
 import cz.cyberrange.platform.training.persistence.model.AssessmentLevel;
+import cz.cyberrange.platform.training.persistence.model.Hint;
+import cz.cyberrange.platform.training.persistence.model.HintInfo;
 import cz.cyberrange.platform.training.persistence.model.InfoLevel;
 import cz.cyberrange.platform.training.persistence.model.MitreTechnique;
+import cz.cyberrange.platform.training.persistence.model.SolutionInfo;
+import cz.cyberrange.platform.training.persistence.model.Submission;
 import cz.cyberrange.platform.training.persistence.model.TrainingDefinition;
 import cz.cyberrange.platform.training.persistence.model.TrainingInstance;
+import cz.cyberrange.platform.training.persistence.model.TrainingLevelResult;
 import cz.cyberrange.platform.training.persistence.model.TrainingLevel;
 import cz.cyberrange.platform.training.persistence.model.TrainingRun;
+import cz.cyberrange.platform.training.persistence.model.UserRef;
+import cz.cyberrange.platform.training.persistence.model.enums.SubmissionType;
 import cz.cyberrange.platform.training.persistence.model.enums.TDState;
+import cz.cyberrange.platform.training.persistence.model.enums.TRState;
+import cz.cyberrange.platform.training.persistence.repository.SubmissionRepository;
+import cz.cyberrange.platform.training.persistence.repository.TrainingLevelResultRepository;
 import cz.cyberrange.platform.training.service.annotations.security.IsDesignerOrOrganizerOrAdmin;
 import cz.cyberrange.platform.training.service.annotations.security.IsTrainee;
 import cz.cyberrange.platform.training.service.annotations.security.IsTraineeOrAdmin;
@@ -68,6 +78,7 @@ import cz.cyberrange.platform.training.service.services.VisualizationService;
 import cz.cyberrange.platform.training.service.services.api.AnswersStorageApiService;
 import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -80,6 +91,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.hibernate.Hibernate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -103,6 +115,8 @@ public class VisualizationFacade {
   private final ElasticsearchApiService elasticsearchApiService;
   private final UserService userService;
   private final LevelMapper levelMapper;
+  private final SubmissionRepository submissionRepository;
+  private final TrainingLevelResultRepository trainingLevelResultRepository;
 
   /**
    * Instantiates a new Visualization facade.
@@ -122,7 +136,9 @@ public class VisualizationFacade {
       AnswersStorageApiService answersStorageApiService,
       ElasticsearchApiService elasticsearchApiService,
       UserService userService,
-      LevelMapper levelMapper) {
+      LevelMapper levelMapper,
+      SubmissionRepository submissionRepository,
+      TrainingLevelResultRepository trainingLevelResultRepository) {
     this.trainingDefinitionService = trainingDefinitionService;
     this.trainingInstanceService = trainingInstanceService;
     this.trainingRunService = trainingRunService;
@@ -131,6 +147,8 @@ public class VisualizationFacade {
     this.elasticsearchApiService = elasticsearchApiService;
     this.levelMapper = levelMapper;
     this.userService = userService;
+    this.submissionRepository = submissionRepository;
+    this.trainingLevelResultRepository = trainingLevelResultRepository;
   }
 
   /**
@@ -645,41 +663,174 @@ public class VisualizationFacade {
   }
 
   private List<PlayerDataDTO> getTableVisualizations(Long trainingInstanceId) {
-    TrainingInstanceData trainingInstanceData =
-        getTrainingInstanceData(
-            trainingInstanceId,
-            elasticsearchApiService::getAggregatedEventsByTrainingRunsAndLevels,
-            this::retrieveRunIdsFromEventsAggregatedByRunsAndLevels);
+    Set<TrainingRun> trainingRuns =
+        trainingRunService.findAllByTrainingInstanceId(trainingInstanceId);
+    if (trainingRuns.isEmpty()) {
+      return Collections.emptyList();
+    }
+    List<Long> trainingRunIds =
+        trainingRuns.stream().map(TrainingRun::getId).collect(Collectors.toList());
 
-    return trainingInstanceData.events.entrySet().stream()
+    List<AbstractLevel> levels =
+        visualizationService.getLevelsForOrganizerVisualization(
+            trainingInstanceService.findById(trainingInstanceId));
+    Map<Long, UserRefDTO> participantsByRefId =
+        userService
+            .getUsersRefDTOByGivenUserIds(
+                trainingRuns.stream()
+                    .map(run -> run.getParticipantRef().getUserRefId())
+                    .distinct()
+                    .collect(Collectors.toList()))
+            .stream()
+            .collect(Collectors.toMap(UserRefDTO::getUserRefId, Function.identity()));
+    Map<Long, List<Submission>> submissionsByRunId =
+        submissionRepository
+            .findAllByTrainingRunIdIn(trainingRunIds)
+            .stream()
+            .collect(Collectors.groupingBy(submission -> submission.getTrainingRun().getId()));
+    Map<Long, Map<Long, TrainingLevelResult>> resultsByRunId =
+        trainingLevelResultRepository.findAllByTrainingRunIdIn(trainingRunIds).stream()
+            .collect(
+                Collectors.groupingBy(
+                    TrainingLevelResult::getTrainingRunId,
+                    Collectors.toMap(TrainingLevelResult::getLevelId, Function.identity())));
+
+    return trainingRuns.stream()
+        .sorted(Comparator.comparing(TrainingRun::getStartTime))
         .map(
-            runEvents -> {
-              AbstractAuditPOJO lastLevelEvent = null;
-              UserRefDTO participantInfo =
-                  trainingInstanceData.participantsByTrainingRuns.get(runEvents.getKey());
-              TablePlayerDTO tablePlayerDataDTO =
-                  new TablePlayerDTO(participantInfo, runEvents.getKey());
-
-              for (AbstractLevel abstractLevel : trainingInstanceData.levels) {
-                List<AbstractAuditPOJO> levelEvents =
-                    runEvents.getValue().get(abstractLevel.getId());
-                if (levelEvents != null) {
-                  lastLevelEvent = levelEvents.get(levelEvents.size() - 1);
-                } else {
-                  levelEvents = Collections.emptyList();
-                }
-                tablePlayerDataDTO.addTableLevel(mapToTableLevelDTO(abstractLevel, levelEvents));
-              }
-              tablePlayerDataDTO.setTrainingScore(
-                  lastLevelEvent == null ? 0 : lastLevelEvent.getTotalTrainingScore());
-              tablePlayerDataDTO.setAssessmentScore(
-                  lastLevelEvent == null ? 0 : lastLevelEvent.getTotalAssessmentScore());
-              tablePlayerDataDTO.setFinished(lastLevelEvent instanceof TrainingRunEnded);
-              tablePlayerDataDTO.setTrainingTime(
-                  lastLevelEvent == null ? 0 : lastLevelEvent.getTrainingTime());
-              return tablePlayerDataDTO;
-            })
+            trainingRun ->
+                mapToDbBackedTablePlayerDTO(
+                    trainingRun,
+                    levels,
+                    submissionsByRunId.getOrDefault(trainingRun.getId(), Collections.emptyList()),
+                    resultsByRunId.getOrDefault(trainingRun.getId(), Collections.emptyMap()),
+                    getParticipantInfo(trainingRun.getParticipantRef(), participantsByRefId)))
         .collect(Collectors.toList());
+  }
+
+  private UserRefDTO getParticipantInfo(
+      UserRef participantRef, Map<Long, UserRefDTO> participantsByRefId) {
+    return participantsByRefId.computeIfAbsent(
+        participantRef.getUserRefId(), userService::getUserRefDTOByUserRefId);
+  }
+
+  private TablePlayerDTO mapToDbBackedTablePlayerDTO(
+      TrainingRun trainingRun,
+      List<AbstractLevel> levels,
+      List<Submission> submissions,
+      Map<Long, TrainingLevelResult> resultsByLevelId,
+      UserRefDTO participantInfo) {
+    TablePlayerDTO tablePlayerDataDTO = new TablePlayerDTO(participantInfo, trainingRun.getId());
+    for (AbstractLevel abstractLevel : levels) {
+      tablePlayerDataDTO.addTableLevel(
+          mapToDbBackedTableLevelDTO(
+              abstractLevel, trainingRun, submissions, resultsByLevelId.get(abstractLevel.getId())));
+    }
+    tablePlayerDataDTO.setTrainingScore(trainingRun.getTotalTrainingScore());
+    tablePlayerDataDTO.setAssessmentScore(trainingRun.getTotalAssessmentScore());
+    tablePlayerDataDTO.setFinished(trainingRun.getState().equals(TRState.FINISHED));
+    tablePlayerDataDTO.setTrainingTime(getTrainingTimeMillis(trainingRun));
+    return tablePlayerDataDTO;
+  }
+
+  private TableLevelDTO mapToDbBackedTableLevelDTO(
+      AbstractLevel abstractLevel,
+      TrainingRun trainingRun,
+      List<Submission> submissions,
+      TrainingLevelResult persistedResult) {
+    AbstractLevel unproxiedLevel = (AbstractLevel) Hibernate.unproxy(abstractLevel);
+    TableLevelDTO.TableLevelBuilder tableLevelBuilder =
+        new TableLevelDTO.TableLevelBuilder()
+            .id(unproxiedLevel.getId())
+            .order(unproxiedLevel.getOrder());
+    if (unproxiedLevel instanceof TrainingLevel trainingLevel) {
+      tableLevelBuilder.levelType(
+          cz.cyberrange.platform.training.api.enums.LevelType.TRAINING_LEVEL);
+      if (persistedResult != null) {
+        tableLevelBuilder
+            .hintsTaken(persistedResult.getHintsTaken())
+            .wrongAnswers(persistedResult.getWrongAnswers())
+            .score(persistedResult.getParticipantLevelScore());
+      } else {
+        tableLevelBuilder
+            .hintsTaken(countHintsTaken(trainingRun, trainingLevel.getId()))
+            .wrongAnswers(countWrongAnswers(submissions, trainingLevel.getId()))
+            .score(getTrainingLevelScore(trainingRun, trainingLevel, submissions));
+      }
+    } else if (unproxiedLevel instanceof AssessmentLevel) {
+      tableLevelBuilder.levelType(
+          cz.cyberrange.platform.training.api.enums.LevelType.ASSESSMENT_LEVEL);
+      if (persistedResult != null) {
+        tableLevelBuilder.score(persistedResult.getParticipantLevelScore());
+      }
+    } else if (unproxiedLevel instanceof InfoLevel) {
+      tableLevelBuilder.levelType(cz.cyberrange.platform.training.api.enums.LevelType.INFO_LEVEL);
+    } else if (unproxiedLevel instanceof AccessLevel) {
+      tableLevelBuilder.levelType(cz.cyberrange.platform.training.api.enums.LevelType.ACCESS_LEVEL);
+    }
+    return tableLevelBuilder.build();
+  }
+
+  private int countHintsTaken(TrainingRun trainingRun, Long levelId) {
+    return (int)
+        trainingRun.getHintInfoList().stream()
+            .filter(hintInfo -> hintInfo.getTrainingLevelId().equals(levelId))
+            .count();
+  }
+
+  private int countWrongAnswers(List<Submission> submissions, Long levelId) {
+    return (int)
+        submissions.stream()
+            .filter(
+                submission ->
+                    submission.getType().equals(SubmissionType.INCORRECT)
+                        && submission.getLevel().getId().equals(levelId))
+            .count();
+  }
+
+  private int getTrainingLevelScore(
+      TrainingRun trainingRun, TrainingLevel trainingLevel, List<Submission> submissions) {
+    boolean levelCompleted =
+        submissions.stream()
+            .anyMatch(
+                submission ->
+                    submission.getType().equals(SubmissionType.CORRECT)
+                        && submission.getLevel().getId().equals(trainingLevel.getId()));
+    if (!levelCompleted) {
+      return 0;
+    }
+    if (isSolutionTaken(trainingRun, trainingLevel.getId())
+        && trainingLevel.isSolutionPenalized()) {
+      return 0;
+    }
+    int hintPenalty =
+        trainingRun.getHintInfoList().stream()
+            .filter(hintInfo -> hintInfo.getTrainingLevelId().equals(trainingLevel.getId()))
+            .mapToInt(hintInfo -> getHintPenalty(trainingLevel, hintInfo))
+            .sum();
+    return Math.max(0, trainingLevel.getMaxScore() - hintPenalty);
+  }
+
+  private boolean isSolutionTaken(TrainingRun trainingRun, Long levelId) {
+    return trainingRun.getSolutionInfoList().stream()
+        .map(SolutionInfo::getTrainingLevelId)
+        .anyMatch(levelId::equals);
+  }
+
+  private int getHintPenalty(TrainingLevel trainingLevel, HintInfo hintInfo) {
+    return trainingLevel.getHints().stream()
+        .filter(hint -> hint.getId().equals(hintInfo.getHintId()))
+        .map(Hint::getHintPenalty)
+        .findFirst()
+        .orElse(0);
+  }
+
+  private long getTrainingTimeMillis(TrainingRun trainingRun) {
+    LocalDateTime endTime =
+        trainingRun.getState().equals(TRState.FINISHED)
+            ? trainingRun.getEndTime()
+            : LocalDateTime.now(Clock.systemUTC());
+    return Math.max(0, Duration.between(trainingRun.getStartTime(), endTime).toMillis());
   }
 
   /**
@@ -906,10 +1057,11 @@ public class VisualizationFacade {
 
   private TableLevelDTO mapToTableLevelDTO(
       AbstractLevel abstractLevel, List<AbstractAuditPOJO> levelEvents) {
+    AbstractLevel unproxiedLevel = (AbstractLevel) Hibernate.unproxy(abstractLevel);
     TableLevelDTO.TableLevelBuilder tableLevelBuilder =
         new TableLevelDTO.TableLevelBuilder()
-            .id(abstractLevel.getId())
-            .order(abstractLevel.getOrder());
+            .id(unproxiedLevel.getId())
+            .order(unproxiedLevel.getOrder());
     AbstractAuditPOJO lastLevelEvent =
         levelEvents.isEmpty() ? null : levelEvents.get(levelEvents.size() - 1);
     if (!levelEvents.isEmpty()
@@ -918,16 +1070,16 @@ public class VisualizationFacade {
       tableLevelBuilder.score(lastLevelEvent.getActualScoreInLevel());
     }
 
-    if (abstractLevel instanceof TrainingLevel) {
+    if (unproxiedLevel instanceof TrainingLevel) {
       tableLevelBuilder.levelType(
           cz.cyberrange.platform.training.api.enums.LevelType.TRAINING_LEVEL);
       countHintsTakenAndWrongAnswers(tableLevelBuilder, levelEvents);
-    } else if (abstractLevel instanceof AssessmentLevel) {
+    } else if (unproxiedLevel instanceof AssessmentLevel) {
       tableLevelBuilder.levelType(
           cz.cyberrange.platform.training.api.enums.LevelType.ASSESSMENT_LEVEL);
-    } else if (abstractLevel instanceof InfoLevel) {
+    } else if (unproxiedLevel instanceof InfoLevel) {
       tableLevelBuilder.levelType(cz.cyberrange.platform.training.api.enums.LevelType.INFO_LEVEL);
-    } else if (abstractLevel instanceof AccessLevel) {
+    } else if (unproxiedLevel instanceof AccessLevel) {
       tableLevelBuilder.levelType(cz.cyberrange.platform.training.api.enums.LevelType.ACCESS_LEVEL);
     }
     return tableLevelBuilder.build();
@@ -1057,8 +1209,7 @@ public class VisualizationFacade {
     return trainingInstanceData;
   }
 
-  private Map<Long, UserRefDTO>
-  getUserRefDTOsFromInstanceEvents(
+  private Map<Long, UserRefDTO> getUserRefDTOsFromInstanceEvents(
       Long trainingInstanceId,
       Map<Long, Map<Long, List<AbstractAuditPOJO>>> trainingInstanceEvents,
       Function<Map<Long, Map<Long, List<AbstractAuditPOJO>>>, Set<Long>>
