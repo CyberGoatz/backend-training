@@ -13,6 +13,7 @@ import cz.cyberrange.platform.training.api.dto.assessmentlevel.question.Question
 import cz.cyberrange.platform.training.api.dto.hint.HintDTO;
 import cz.cyberrange.platform.training.api.dto.run.AccessTrainingRunDTO;
 import cz.cyberrange.platform.training.api.dto.run.AccessedTrainingRunDTO;
+import cz.cyberrange.platform.training.api.dto.run.PublicTrainingCompletionDTO;
 import cz.cyberrange.platform.training.api.dto.run.TrainingRunByIdDTO;
 import cz.cyberrange.platform.training.api.dto.run.TrainingRunDTO;
 import cz.cyberrange.platform.training.api.dto.traininglevel.LevelReferenceSolutionDTO;
@@ -60,6 +61,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -222,6 +224,19 @@ public class TrainingRunFacade {
     public PageResultResource<AccessedTrainingRunDTO> findAllAccessedTrainingRuns(Predicate predicate, Pageable pageable, String sortByTitle) {
         Page<TrainingRun> trainingRuns = trainingRunService.findAllByParticipantRefUserRefId(predicate, pageable);
         return convertToAccessedRunDTO(trainingRuns, sortByTitle);
+    }
+
+    /**
+     * Finds public-safe completed Training Runs for a user.
+     *
+     * @param userRefId user ref id.
+     * @return public-safe completed training summaries.
+     */
+    @TransactionalRO
+    public List<PublicTrainingCompletionDTO> findPublicCompletedTrainingRuns(Long userRefId) {
+        return trainingRunService.findAllFinishedByParticipantRefId(userRefId).stream()
+                .map(this::toPublicTrainingCompletionDTO)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -624,6 +639,26 @@ public class TrainingRunFacade {
         accessedTrainingRunDTO.setCurrentLevelOrder(trainingRun.getCurrentLevel().getOrder() + 1);
         accessedTrainingRunDTO.setPossibleAction(resolvePossibleActions(accessedTrainingRunDTO, trainingRun.getState()));
         return accessedTrainingRunDTO;
+    }
+
+    private PublicTrainingCompletionDTO toPublicTrainingCompletionDTO(TrainingRun trainingRun) {
+        TrainingInstance instance = trainingRun.getTrainingInstance();
+        TrainingDefinition definition = instance.getTrainingDefinition();
+        PublicTrainingCompletionDTO completionDTO = new PublicTrainingCompletionDTO();
+        completionDTO.setTrainingRunId(trainingRun.getId());
+        completionDTO.setTrainingInstanceId(instance.getId());
+        completionDTO.setTrainingDefinitionId(definition.getId());
+        completionDTO.setTrainingTitle(instance.getTitle());
+        completionDTO.setDefinitionTitle(definition.getTitle());
+        completionDTO.setFinishedAt(trainingRun.getEndTime());
+        completionDTO.setTrainingScore(trainingRun.getTotalTrainingScore());
+        completionDTO.setAssessmentScore(trainingRun.getTotalAssessmentScore());
+        completionDTO.setTotalScore(trainingRun.getTotalTrainingScore() + trainingRun.getTotalAssessmentScore());
+        completionDTO.setMaxScore(trainingRunService.getLevels(definition.getId()).stream()
+                .mapToInt(AbstractLevel::getMaxScore)
+                .sum());
+        completionDTO.setTrainingTimeMs(Duration.between(trainingRun.getStartTime(), trainingRun.getEndTime()).toMillis());
+        return completionDTO;
     }
 
     private Actions resolvePossibleActions(AccessedTrainingRunDTO trainingRunDTO, TRState trainingRunState) {

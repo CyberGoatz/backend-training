@@ -215,6 +215,16 @@ public class TrainingRunService {
     }
 
     /**
+     * Finds all finished Training Runs for a user ref id.
+     *
+     * @param userRefId user ref id.
+     * @return finished {@link TrainingRun}s of the user.
+     */
+    public List<TrainingRun> findAllFinishedByParticipantRefId(Long userRefId) {
+        return trainingRunRepository.findAllFinishedByParticipantRefId(userRefId);
+    }
+
+    /**
      * Finds all Training Runs of particular training instance.
      *
      * @param trainingInstanceId the training instance id

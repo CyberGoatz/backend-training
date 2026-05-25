@@ -19,6 +19,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -103,6 +104,20 @@ public interface TrainingRunRepository extends JpaRepository<TrainingRun, Long>,
      * @return the page of all {@link TrainingRun}s accessed by participant
      */
     Page<TrainingRun> findAllByParticipantRefId(@Param("userRefId") Long userRefId, Pageable pageable);
+
+    /**
+     * Find public-safe finished training runs accessed by participant by their user ref id.
+     *
+     * @param userRefId the participant ref id
+     * @return the finished {@link TrainingRun}s accessed by participant
+     */
+    @Query("SELECT tr FROM TrainingRun tr " +
+            "JOIN FETCH tr.participantRef pr " +
+            "JOIN FETCH tr.trainingInstance ti " +
+            "JOIN FETCH ti.trainingDefinition td " +
+            "WHERE pr.userRefId = :userRefId AND tr.state = 'FINISHED' " +
+            "ORDER BY tr.endTime DESC")
+    List<TrainingRun> findAllFinishedByParticipantRefId(@Param("userRefId") Long userRefId);
 
     /**
      * Find training run by id including current level
