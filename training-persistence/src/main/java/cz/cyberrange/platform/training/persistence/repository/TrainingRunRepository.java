@@ -197,6 +197,19 @@ public interface TrainingRunRepository extends JpaRepository<TrainingRun, Long>,
     Optional<TrainingRun> findRunningTrainingRunOfUser(@Param("accessToken") String accessToken, @Param("userRefId") Long userRefId);
 
     /**
+     * Checks whether the participant has already finished a training run in the training instance.
+     *
+     * @param accessToken the access token of the training instance
+     * @param userRefId   the user ref id
+     * @return true if the participant has a finished training run in the training instance
+     */
+    @Query("SELECT (COUNT(tr) > 0) FROM TrainingRun tr " +
+            "JOIN tr.trainingInstance ti " +
+            "JOIN tr.participantRef pr " +
+            "WHERE ti.accessToken = :accessToken AND pr.userRefId = :userRefId AND tr.state = 'FINISHED'")
+    boolean existsFinishedTrainingRunOfUser(@Param("accessToken") String accessToken, @Param("userRefId") Long userRefId);
+
+    /**
      * Exists any for training instance boolean.
      *
      * @param trainingInstanceId the training instance id

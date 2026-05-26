@@ -352,6 +352,17 @@ public class TrainingRunService {
     }
 
     /**
+     * Checks whether user already finished a training run for a training instance.
+     *
+     * @param accessToken      the access token of the training instance
+     * @param participantRefId the participant ref id
+     * @return true if the user already has a finished training run for the training instance
+     */
+    public boolean hasFinishedTrainingRunOfUser(String accessToken, Long participantRefId) {
+        return trainingRunRepository.existsFinishedTrainingRunOfUser(accessToken, participantRefId);
+    }
+
+    /**
      * Gets training instance for particular access token.
      *
      * @param accessToken the access token

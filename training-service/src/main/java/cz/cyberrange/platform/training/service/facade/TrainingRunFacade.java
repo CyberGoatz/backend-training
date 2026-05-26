@@ -21,6 +21,8 @@ import cz.cyberrange.platform.training.api.dto.traininglevel.TrainingLevelPrevie
 import cz.cyberrange.platform.training.api.enums.Actions;
 import cz.cyberrange.platform.training.api.enums.LevelType;
 import cz.cyberrange.platform.training.api.enums.QuestionType;
+import cz.cyberrange.platform.training.api.exceptions.EntityConflictException;
+import cz.cyberrange.platform.training.api.exceptions.EntityErrorDetail;
 import cz.cyberrange.platform.training.api.responses.PageResultResource;
 import cz.cyberrange.platform.training.api.responses.VariantAnswer;
 import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
@@ -281,6 +283,10 @@ public class TrainingRunFacade {
         if (accessedTrainingRun.isPresent()) {
             TrainingRun trainingRun = trainingRunService.resumeTrainingRun(accessedTrainingRun.get().getId());
             return convertToAccessTrainingRunDTO(trainingRun);
+        }
+        if (trainingRunService.hasFinishedTrainingRunOfUser(accessToken, participantRefId)) {
+            throw new EntityConflictException(new EntityErrorDetail(TrainingInstance.class, "accessToken", String.class, accessToken,
+                    "Training has already been finished by this user."));
         }
         // Check if the user already clicked access training run, in that case, it returns an exception (it prevents concurrent accesses).
         trainingRunService.trAcquisitionLockToPreventManyRequestsFromSameUser(participantRefId, trainingInstance.getId(), accessToken);

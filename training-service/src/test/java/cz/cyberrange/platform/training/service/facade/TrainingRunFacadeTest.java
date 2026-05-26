@@ -5,6 +5,7 @@ import com.querydsl.core.types.dsl.PathBuilder;
 import cz.cyberrange.platform.training.api.dto.CorrectAnswerDTO;
 import cz.cyberrange.platform.training.api.dto.IsCorrectAnswerDTO;
 import cz.cyberrange.platform.training.api.dto.UserRefDTO;
+import cz.cyberrange.platform.training.api.exceptions.EntityConflictException;
 import cz.cyberrange.platform.training.api.responses.SandboxAnswersInfo;
 import cz.cyberrange.platform.training.api.responses.VariantAnswer;
 import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
@@ -197,6 +198,19 @@ public class TrainingRunFacadeTest {
         given(trainingRunService.resumeTrainingRun(anyLong())).willReturn(trainingRun1);
         trainingRunFacade.accessTrainingRun("password");
         then(trainingRunService).should().resumeTrainingRun(anyLong());
+    }
+
+    @Test
+    public void accessFinishedTrainingRunThrowsConflict() {
+        given(trainingRunService.getTrainingInstanceForParticularAccessToken(anyString())).willReturn(trainingInstance);
+        given(securityService.getUserRefIdFromUserAndGroup()).willReturn(1L);
+        given(trainingRunService.findRunningTrainingRunOfUser(anyString(), anyLong())).willReturn(Optional.empty());
+        given(trainingRunService.hasFinishedTrainingRunOfUser("password", 1L)).willReturn(true);
+
+        assertThrows(EntityConflictException.class, () -> trainingRunFacade.accessTrainingRun("password"));
+
+        then(trainingRunService).should(never()).trAcquisitionLockToPreventManyRequestsFromSameUser(anyLong(), anyLong(), anyString());
+        then(trainingRunService).should(never()).createTrainingRun(any(TrainingInstance.class), anyLong());
     }
 
     @Test

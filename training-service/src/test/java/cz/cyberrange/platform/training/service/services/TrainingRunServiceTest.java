@@ -437,6 +437,14 @@ public class TrainingRunServiceTest {
     }
 
     @Test
+    public void hasFinishedTrainingRunOfUser() {
+        given(trainingRunRepository.existsFinishedTrainingRunOfUser(trainingInstance1.getAccessToken(), participantRef.getUserRefId()))
+                .willReturn(true);
+        boolean result = trainingRunService.hasFinishedTrainingRunOfUser(trainingInstance1.getAccessToken(), participantRef.getUserRefId());
+        assertTrue(result);
+    }
+
+    @Test
     public void trAcquisitionLockToPreventManyRequestsFromSameUser() {
         TRAcquisitionLock trAcquisitionLock = new TRAcquisitionLock(participantRef.getUserRefId(), trainingInstance1.getId(), LocalDateTime.now());
         trainingRunService.trAcquisitionLockToPreventManyRequestsFromSameUser(participantRef.getUserRefId(), trainingInstance1.getId(), trainingInstance1.getAccessToken());
