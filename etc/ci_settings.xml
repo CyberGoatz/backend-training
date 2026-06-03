@@ -5,7 +5,7 @@
         <profile>
             <id>inject-version-variable</id>
             <properties>
-                <app-version>1.2.2</app-version>
+                <app-version>1.2.3</app-version>
             </properties>
         </profile>
     </profiles>

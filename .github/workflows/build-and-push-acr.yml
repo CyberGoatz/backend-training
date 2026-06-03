@@ -22,5 +22,5 @@ jobs:
       build_type: java
       maven_cli_opts: "-DskipChecks=true"
       build_args: |
-        MAVEN_CLI_OPTS=-DskipChecks=true
+        MAVEN_CLI_OPTS=-s etc/ci_settings.xml -DskipChecks=true
     secrets: inherit
