@@ -1,29 +1,26 @@
-name: Training CI
+name: Build and push Docker image to ACR
 
 on:
   push:
-    branches-ignore:
-      - master
+    tags:
+      - 'v*'
   pull_request:
     branches:
+      - main
       - master
   workflow_dispatch:
-    inputs:
-      confirm_action:
-        description: "Type 'yes' if you want to publish and create a new tag"
-        required: true
-        default: "no"
+
+permissions:
+  contents: read
 
 jobs:
-  # This will create docker image as well
-  java_template:
-    uses: cyberrangecz/actions-templates/.github/workflows/java_template.yml@master
-    secrets:
-      NVD_API: ${{ secrets.NVD_API }}
-      OSS_INDEX_USER: ${{ secrets.OSS_INDEX_USER }}
-      OSS_INDEX_TOKEN: ${{ secrets.OSS_INDEX_TOKEN }}
+  acr:
+    uses: CyberGoatz/github-workflows/.github/workflows/acr-build-push.yml@main
     with:
-      MAVEN_CLI_OPTS: "-s etc/ci_settings.xml"
-      IMAGE_NAME: "training"
-      VERSION_PATH: "etc/ci_settings.xml"
-      publish_and_tag: ${{ github.event.inputs.confirm_action }}
+      acr_login_server: ${{ vars.ACR_LOGIN_SERVER }}
+      image_name: training-service
+      build_type: java
+      maven_cli_opts: "-DskipChecks=true"
+      build_args: |
+        MAVEN_CLI_OPTS=-DskipChecks=true
+    secrets: inherit
