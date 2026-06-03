@@ -25,6 +25,7 @@ import cz.cyberrange.platform.training.persistence.repository.QuestionAnswerRepo
 import cz.cyberrange.platform.training.persistence.repository.SubmissionRepository;
 import cz.cyberrange.platform.training.persistence.repository.TRAcquisitionLockRepository;
 import cz.cyberrange.platform.training.persistence.repository.TrainingInstanceRepository;
+import cz.cyberrange.platform.training.persistence.repository.TrainingLevelResultRepository;
 import cz.cyberrange.platform.training.persistence.repository.TrainingRunRepository;
 import cz.cyberrange.platform.training.persistence.repository.UserRefRepository;
 import cz.cyberrange.platform.training.service.annotations.transactions.TransactionalWO;
@@ -74,6 +75,7 @@ public class TrainingRunService {
     private final QuestionAnswerRepository questionAnswerRepository;
     private final SandboxApiService sandboxApiService;
     private final SubmissionRepository submissionRepository;
+    private final TrainingLevelResultRepository trainingLevelResultRepository;
 
     /**
      * Instantiates a new Training run service.
@@ -101,7 +103,8 @@ public class TrainingRunService {
                               QuestionAnswerRepository questionAnswerRepository,
                               SandboxApiService sandboxApiService,
                               TRAcquisitionLockRepository trAcquisitionLockRepository,
-                              SubmissionRepository submissionRepository) {
+                              SubmissionRepository submissionRepository,
+                              TrainingLevelResultRepository trainingLevelResultRepository) {
         this.trainingRunRepository = trainingRunRepository;
         this.abstractLevelRepository = abstractLevelRepository;
         this.trainingInstanceRepository = trainingInstanceRepository;
@@ -115,6 +118,7 @@ public class TrainingRunService {
         this.sandboxApiService = sandboxApiService;
         this.trAcquisitionLockRepository = trAcquisitionLockRepository;
         this.submissionRepository = submissionRepository;
+        this.trainingLevelResultRepository = trainingLevelResultRepository;
     }
 
     /**
@@ -167,6 +171,7 @@ public class TrainingRunService {
         }
         questionAnswerRepository.deleteAllByTrainingRunId(trainingRunId);
         submissionRepository.deleteAllByTrainingRunId(trainingRunId);
+        trainingLevelResultRepository.deleteAllByTrainingRunId(trainingRunId);
         if(deleteDataFromElasticsearch) {
             deleteDataFromElasticsearch(trainingRun);
         }
@@ -207,6 +212,16 @@ public class TrainingRunService {
      */
     public Page<TrainingRun> findAllByParticipantRefUserRefId(Predicate predicate, Pageable pageable) {
         return trainingRunRepository.findAllByParticipantRefId(securityService.getUserRefIdFromUserAndGroup(), predicate, pageable);
+    }
+
+    /**
+     * Finds all finished Training Runs for a user ref id.
+     *
+     * @param userRefId user ref id.
+     * @return finished {@link TrainingRun}s of the user.
+     */
+    public List<TrainingRun> findAllFinishedByParticipantRefId(Long userRefId) {
+        return trainingRunRepository.findAllFinishedByParticipantRefId(userRefId);
     }
 
     /**
@@ -334,6 +349,17 @@ public class TrainingRunService {
      */
     public Optional<TrainingRun> findRunningTrainingRunOfUser(String accessToken, Long participantRefId) {
         return trainingRunRepository.findRunningTrainingRunOfUser(accessToken, participantRefId);
+    }
+
+    /**
+     * Checks whether user already finished a training run for a training instance.
+     *
+     * @param accessToken      the access token of the training instance
+     * @param participantRefId the participant ref id
+     * @return true if the user already has a finished training run for the training instance
+     */
+    public boolean hasFinishedTrainingRunOfUser(String accessToken, Long participantRefId) {
+        return trainingRunRepository.existsFinishedTrainingRunOfUser(accessToken, participantRefId);
     }
 
     /**
@@ -471,7 +497,9 @@ public class TrainingRunService {
         String correctAnswer = getTrainingLevelCorrectAnswer(trainingLevel, trainingRun);
         if (correctAnswer.equals(answer)) {
             trainingRun.setLevelAnswered(true);
-            trainingRun.increaseTotalTrainingScore(trainingRun.getMaxLevelScore() - trainingRun.getCurrentPenalty());
+            int levelScore = trainingRun.getMaxLevelScore() - trainingRun.getCurrentPenalty();
+            trainingRun.increaseTotalTrainingScore(levelScore);
+            completeLevelResult(trainingRun, trainingLevel, levelScore);
             auditEventsService.auditCorrectAnswerSubmittedAction(trainingRun, answer);
             auditEventsService.auditLevelCompletedAction(trainingRun);
             auditSubmission(trainingRun, SubmissionType.CORRECT, answer);
@@ -479,6 +507,7 @@ public class TrainingRunService {
         } else if (trainingRun.getIncorrectAnswerCount() != trainingLevel.getIncorrectAnswerLimit()) {
             trainingRun.setIncorrectAnswerCount(trainingRun.getIncorrectAnswerCount() + 1);
         }
+        incrementWrongAnswers(trainingRun, trainingLevel);
         auditSubmission(trainingRun, SubmissionType.INCORRECT, answer);
         auditEventsService.auditWrongAnswerSubmittedAction(trainingRun, answer);
         return false;
@@ -535,6 +564,41 @@ public class TrainingRunService {
         return "";
     }
 
+    private TrainingLevelResult getOrCreateLevelResult(TrainingRun trainingRun, AbstractLevel level) {
+        return trainingLevelResultRepository.findByTrainingRunIdAndLevelId(trainingRun.getId(), level.getId())
+                .orElseGet(() -> {
+                    TrainingLevelResult result = new TrainingLevelResult();
+                    result.setTrainingRunId(trainingRun.getId());
+                    result.setLevelId(level.getId());
+                    return result;
+                });
+    }
+
+    private void completeLevelResult(TrainingRun trainingRun, AbstractLevel level, int score) {
+        TrainingLevelResult result = getOrCreateLevelResult(trainingRun, level);
+        result.setParticipantLevelScore(score);
+        result.setCompleted(true);
+        trainingLevelResultRepository.save(result);
+    }
+
+    private void incrementWrongAnswers(TrainingRun trainingRun, TrainingLevel trainingLevel) {
+        TrainingLevelResult result = getOrCreateLevelResult(trainingRun, trainingLevel);
+        result.incrementWrongAnswers();
+        trainingLevelResultRepository.save(result);
+    }
+
+    private void incrementHintsTaken(TrainingRun trainingRun, TrainingLevel trainingLevel) {
+        TrainingLevelResult result = getOrCreateLevelResult(trainingRun, trainingLevel);
+        result.incrementHintsTaken();
+        trainingLevelResultRepository.save(result);
+    }
+
+    private void markSolutionTaken(TrainingRun trainingRun, TrainingLevel trainingLevel) {
+        TrainingLevelResult result = getOrCreateLevelResult(trainingRun, trainingLevel);
+        result.setSolutionTaken(true);
+        trainingLevelResultRepository.save(result);
+    }
+
     /**
      * Gets remaining attempts to solve current level of training run.
      *
@@ -571,6 +635,7 @@ public class TrainingRunService {
                 if (trainingLevel.isSolutionPenalized()) {
                     trainingRun.setCurrentPenalty(trainingRun.getMaxLevelScore());
                 }
+                markSolutionTaken(trainingRun, trainingLevel);
 
                 trainingRunRepository.save(trainingRun);
                 auditEventsService.auditSolutionDisplayedAction(trainingRun);
@@ -624,6 +689,7 @@ public class TrainingRunService {
             if (hint.getTrainingLevel().getId().equals(level.getId())) {
                 trainingRun.increaseCurrentPenalty(hint.getHintPenalty());
                 trainingRun.addHintInfo(new HintInfo(level.getId(), hint.getId(), hint.getTitle(), hint.getContent(), hint.getOrder()));
+                incrementHintsTaken(trainingRun, (TrainingLevel) level);
                 auditEventsService.auditHintTakenAction(trainingRun, hint);
                 return hint;
             }
@@ -733,10 +799,12 @@ public class TrainingRunService {
             throw new EntityConflictException(new EntityErrorDetail(TrainingRun.class, "id", trainingRunId.getClass(), trainingRunId,
                     "Current level of the training run has been already answered."));
         List<QuestionAnswer> userAnswersToQuestions;
-        if (((AssessmentLevel) trainingRun.getCurrentLevel()).getAssessmentType() == AssessmentType.TEST) {
+        AssessmentLevel assessmentLevel = (AssessmentLevel) trainingRun.getCurrentLevel();
+        if (assessmentLevel.getAssessmentType() == AssessmentType.TEST) {
             userAnswersToQuestions = this.gatherAndEvaluateAnswers(trainingRun, answersToQuestions);
         } else {
             userAnswersToQuestions = this.gatherAnswers(trainingRun, answersToQuestions);
+            completeLevelResult(trainingRun, assessmentLevel, 0);
         }
         trainingRun.setLevelAnswered(true);
         questionAnswerRepository.saveAll(userAnswersToQuestions);
@@ -769,6 +837,7 @@ public class TrainingRunService {
         }
         trainingRun.setCurrentPenalty(trainingRun.getMaxLevelScore() - score);
         trainingRun.increaseTotalAssessmentScore(score);
+        completeLevelResult(trainingRun, trainingRun.getCurrentLevel(), score);
         return userAnswersToQuestions;
     }
 

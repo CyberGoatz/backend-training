@@ -22,6 +22,7 @@ import cz.cyberrange.platform.training.persistence.repository.QuestionAnswerRepo
 import cz.cyberrange.platform.training.persistence.repository.SubmissionRepository;
 import cz.cyberrange.platform.training.persistence.repository.TRAcquisitionLockRepository;
 import cz.cyberrange.platform.training.persistence.repository.TrainingInstanceRepository;
+import cz.cyberrange.platform.training.persistence.repository.TrainingLevelResultRepository;
 import cz.cyberrange.platform.training.persistence.repository.TrainingRunRepository;
 import cz.cyberrange.platform.training.persistence.repository.UserRefRepository;
 import cz.cyberrange.platform.training.persistence.util.TestDataFactory;
@@ -70,6 +71,8 @@ public class TrainingRunServiceTest {
     @MockBean
     private SubmissionRepository submissionRepository;
     @MockBean
+    private TrainingLevelResultRepository trainingLevelResultRepository;
+    @MockBean
     private TRAcquisitionLockRepository trAcquisitionLockRepository;
     @MockBean
     private TrainingRunRepository trainingRunRepository;
@@ -109,7 +112,10 @@ public class TrainingRunServiceTest {
         MockitoAnnotations.openMocks(this);
         trainingRunService = new TrainingRunService(trainingRunRepository, abstractLevelRepository, trainingInstanceRepository,
                 participantRefRepository, hintRepository, auditEventService, elasticsearchApiService, answersStorageApiService,
-                securityService, questionAnswerRepository, sandboxApiService, trAcquisitionLockRepository, submissionRepository);
+                securityService, questionAnswerRepository, sandboxApiService, trAcquisitionLockRepository, submissionRepository,
+                trainingLevelResultRepository);
+        given(trainingLevelResultRepository.findByTrainingRunIdAndLevelId(anyLong(), anyLong()))
+                .willReturn(Optional.empty());
 
         trainingDefinition = testDataFactory.getReleasedDefinition();
         trainingDefinition.setId(1L);
@@ -431,6 +437,14 @@ public class TrainingRunServiceTest {
     }
 
     @Test
+    public void hasFinishedTrainingRunOfUser() {
+        given(trainingRunRepository.existsFinishedTrainingRunOfUser(trainingInstance1.getAccessToken(), participantRef.getUserRefId()))
+                .willReturn(true);
+        boolean result = trainingRunService.hasFinishedTrainingRunOfUser(trainingInstance1.getAccessToken(), participantRef.getUserRefId());
+        assertTrue(result);
+    }
+
+    @Test
     public void trAcquisitionLockToPreventManyRequestsFromSameUser() {
         TRAcquisitionLock trAcquisitionLock = new TRAcquisitionLock(participantRef.getUserRefId(), trainingInstance1.getId(), LocalDateTime.now());
         trainingRunService.trAcquisitionLockToPreventManyRequestsFromSameUser(participantRef.getUserRefId(), trainingInstance1.getId(), trainingInstance1.getAccessToken());
@@ -527,6 +541,11 @@ public class TrainingRunServiceTest {
         assertTrue(isCorrect);
         assertEquals(scoreBefore + (trainingRun1.getMaxLevelScore() - trainingRun1.getCurrentPenalty()), trainingRun1.getTotalTrainingScore() + trainingRun1.getTotalAssessmentScore());
         assertTrue(trainingRun1.isLevelAnswered());
+        then(trainingLevelResultRepository).should().save(argThat(result ->
+                result.getTrainingRunId().equals(trainingRun1.getId())
+                        && result.getLevelId().equals(trainingLevel.getId())
+                        && result.getParticipantLevelScore() == trainingRun1.getMaxLevelScore() - trainingRun1.getCurrentPenalty()
+                        && result.isCompleted()));
     }
 
     @Test
@@ -535,6 +554,11 @@ public class TrainingRunServiceTest {
         boolean isCorrect = trainingRunService.isCorrectAnswer(trainingRun1.getId(), "wrong answer");
         assertFalse(isCorrect);
         assertFalse(trainingRun1.isLevelAnswered());
+        then(trainingLevelResultRepository).should().save(argThat(result ->
+                result.getTrainingRunId().equals(trainingRun1.getId())
+                        && result.getLevelId().equals(trainingLevel.getId())
+                        && result.getWrongAnswers() == 1
+                        && !result.isCompleted()));
     }
 
     @Test
@@ -557,6 +581,11 @@ public class TrainingRunServiceTest {
         String solution = trainingRunService.getSolution(trainingRun1.getId());
         assertEquals(solution, trainingLevel.getSolution());
         assertFalse(trainingRun1.isLevelAnswered());
+        then(trainingLevelResultRepository).should().save(argThat(result ->
+                result.getTrainingRunId().equals(trainingRun1.getId())
+                        && result.getLevelId().equals(trainingLevel.getId())
+                        && result.isSolutionTaken()
+                        && !result.isCompleted()));
     }
 
     @Test
@@ -581,6 +610,11 @@ public class TrainingRunServiceTest {
         Hint resultHint1 = trainingRunService.getHint(trainingRun1.getId(), hint1.getId());
         assertEquals(hint1, resultHint1);
         assertEquals(hint1.getHintPenalty(), (Integer) trainingRun1.getCurrentPenalty());
+        then(trainingLevelResultRepository).should().save(argThat(result ->
+                result.getTrainingRunId().equals(trainingRun1.getId())
+                        && result.getLevelId().equals(trainingLevel.getId())
+                        && result.getHintsTaken() == 1
+                        && !result.isCompleted()));
     }
 
     @Test

@@ -19,6 +19,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -105,6 +106,20 @@ public interface TrainingRunRepository extends JpaRepository<TrainingRun, Long>,
     Page<TrainingRun> findAllByParticipantRefId(@Param("userRefId") Long userRefId, Pageable pageable);
 
     /**
+     * Find public-safe finished training runs accessed by participant by their user ref id.
+     *
+     * @param userRefId the participant ref id
+     * @return the finished {@link TrainingRun}s accessed by participant
+     */
+    @Query("SELECT tr FROM TrainingRun tr " +
+            "JOIN FETCH tr.participantRef pr " +
+            "JOIN FETCH tr.trainingInstance ti " +
+            "JOIN FETCH ti.trainingDefinition td " +
+            "WHERE pr.userRefId = :userRefId AND tr.state = 'FINISHED' " +
+            "ORDER BY tr.endTime DESC")
+    List<TrainingRun> findAllFinishedByParticipantRefId(@Param("userRefId") Long userRefId);
+
+    /**
      * Find training run by id including current level
      *
      * @param trainingRunId the training run id
@@ -180,6 +195,19 @@ public interface TrainingRunRepository extends JpaRepository<TrainingRun, Long>,
      * @return the {@link TrainingRun} by user and access token
      */
     Optional<TrainingRun> findRunningTrainingRunOfUser(@Param("accessToken") String accessToken, @Param("userRefId") Long userRefId);
+
+    /**
+     * Checks whether the participant has already finished a training run in the training instance.
+     *
+     * @param accessToken the access token of the training instance
+     * @param userRefId   the user ref id
+     * @return true if the participant has a finished training run in the training instance
+     */
+    @Query("SELECT (COUNT(tr) > 0) FROM TrainingRun tr " +
+            "JOIN tr.trainingInstance ti " +
+            "JOIN tr.participantRef pr " +
+            "WHERE ti.accessToken = :accessToken AND pr.userRefId = :userRefId AND tr.state = 'FINISHED'")
+    boolean existsFinishedTrainingRunOfUser(@Param("accessToken") String accessToken, @Param("userRefId") Long userRefId);
 
     /**
      * Exists any for training instance boolean.
