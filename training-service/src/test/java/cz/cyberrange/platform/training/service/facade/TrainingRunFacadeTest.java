@@ -24,6 +24,7 @@ import cz.cyberrange.platform.training.service.services.TrainingDefinitionServic
 import cz.cyberrange.platform.training.service.services.TrainingRunService;
 import cz.cyberrange.platform.training.service.services.UserService;
 import cz.cyberrange.platform.training.service.services.api.AnswersStorageApiService;
+import cz.cyberrange.platform.training.service.services.api.SandboxApiService;
 import cz.cyberrange.platform.training.service.services.api.TrainingFeedbackApiService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -79,6 +80,8 @@ public class TrainingRunFacadeTest {
     @MockBean
     private AnswersStorageApiService answersStorageApiService;
     @MockBean
+    private SandboxApiService sandboxApiService;
+    @MockBean
     private TrainingFeedbackApiService trainingFeedbackApiService;
 
     private TrainingRun trainingRun1, trainingRun2;
@@ -94,7 +97,7 @@ public class TrainingRunFacadeTest {
     @BeforeEach
     public void init() {
         MockitoAnnotations.openMocks(this);
-        trainingRunFacade = new TrainingRunFacade(trainingRunService, trainingDefinitionService, answersStorageApiService,
+        trainingRunFacade = new TrainingRunFacade(trainingRunService, trainingDefinitionService, answersStorageApiService, sandboxApiService,
                 securityService, userService, trainingFeedbackApiService, trainingRunMapper, levelMapper, hintMapper);
 
         participant = new UserRef();
@@ -243,12 +246,27 @@ public class TrainingRunFacadeTest {
 
     @Test
     public void finishTrainingRun() {
+        trainingRun1.setSandboxInstanceAllocationId(null);
         given(trainingRunService.finishTrainingRun(trainingRun1.getId())).willReturn(trainingRun1);
+        given(trainingDefinitionService.getAllTrainingLevels(trainingDefinition.getId())).willReturn(new ArrayList<>());
         trainingRunFacade.finishTrainingRun(trainingRun1.getId());
         then(trainingRunService).should().finishTrainingRun(trainingRun1.getId());
+        then(sandboxApiService).should(never()).cleanupSandboxAllocationUnit(anyInt(), anyBoolean(), anyBoolean());
         then(trainingFeedbackApiService).should(never()).createTraineeGraph(any(), any(), any(), any(), any());
         then(trainingFeedbackApiService).should(never()).createSummaryGraph(any(), any());
         then(trainingFeedbackApiService).should(never()).deleteSummaryGraph(any());
+    }
+
+    @Test
+    public void finishTrainingRunCleanupAndReplaceCloudSandbox() {
+        trainingInstance.setLocalEnvironment(false);
+        trainingRun1.setSandboxInstanceAllocationId(10);
+        given(trainingRunService.finishTrainingRun(trainingRun1.getId())).willReturn(trainingRun1);
+        given(trainingDefinitionService.getAllTrainingLevels(trainingDefinition.getId())).willReturn(new ArrayList<>());
+
+        trainingRunFacade.finishTrainingRun(trainingRun1.getId());
+
+        then(sandboxApiService).should().cleanupSandboxAllocationUnit(10, true, true);
     }
 
     @Test

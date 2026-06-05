@@ -51,6 +51,7 @@ import cz.cyberrange.platform.training.service.services.TrainingDefinitionServic
 import cz.cyberrange.platform.training.service.services.TrainingRunService;
 import cz.cyberrange.platform.training.service.services.UserService;
 import cz.cyberrange.platform.training.service.services.api.AnswersStorageApiService;
+import cz.cyberrange.platform.training.service.services.api.SandboxApiService;
 import cz.cyberrange.platform.training.service.services.api.TrainingFeedbackApiService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,6 +94,7 @@ public class TrainingRunFacade {
     private final TrainingRunService trainingRunService;
     private final TrainingDefinitionService trainingDefinitionService;
     private final AnswersStorageApiService answersStorageApiService;
+    private final SandboxApiService sandboxApiService;
     private final SecurityService securityService;
     private final UserService userService;
     private final TrainingFeedbackApiService trainingFeedbackApiService;
@@ -115,6 +117,7 @@ public class TrainingRunFacade {
     public TrainingRunFacade(TrainingRunService trainingRunService,
                              TrainingDefinitionService trainingDefinitionService,
                              AnswersStorageApiService answersStorageApiService,
+                             SandboxApiService sandboxApiService,
                              SecurityService securityService,
                              UserService userService,
                              TrainingFeedbackApiService trainingFeedbackApiService,
@@ -124,6 +127,7 @@ public class TrainingRunFacade {
         this.trainingRunService = trainingRunService;
         this.trainingDefinitionService = trainingDefinitionService;
         this.answersStorageApiService = answersStorageApiService;
+        this.sandboxApiService = sandboxApiService;
         this.securityService = securityService;
         this.userService = userService;
         this.trainingRunMapper = trainingRunMapper;
@@ -475,8 +479,26 @@ public class TrainingRunFacade {
     @TransactionalWO
     public void finishTrainingRun(Long trainingRunId) {
         TrainingRun finishedTrainingRun = trainingRunService.finishTrainingRun(trainingRunId);
-        waitToPropagateEvents();
-        createTraineeGraphAndUpdateSummaryGraph(finishedTrainingRun);
+        try {
+            waitToPropagateEvents();
+            createTraineeGraphAndUpdateSummaryGraph(finishedTrainingRun);
+        } finally {
+            cleanupSandboxAfterFinishedTrainingRun(finishedTrainingRun);
+        }
+    }
+
+    private void cleanupSandboxAfterFinishedTrainingRun(TrainingRun run) {
+        Integer allocationUnitId = run.getSandboxInstanceAllocationId();
+        if (run.getTrainingInstance().isLocalEnvironment() || allocationUnitId == null) {
+            return;
+        }
+
+        try {
+            sandboxApiService.cleanupSandboxAllocationUnit(allocationUnitId, true, true);
+        } catch (RuntimeException ex) {
+            LOG.warn("Failed to cleanup and replace sandbox allocation unit {} after finishing training run {}.",
+                    allocationUnitId, run.getId(), ex);
+        }
     }
 
     private void createTraineeGraphAndUpdateSummaryGraph(TrainingRun run) {
