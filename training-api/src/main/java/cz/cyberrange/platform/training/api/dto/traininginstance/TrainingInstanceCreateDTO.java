@@ -26,8 +26,7 @@ public class TrainingInstanceCreateDTO {
     @NotNull(message = "{trainingInstance.startTime.NotNull.message}")
     @JsonDeserialize(using = LocalDateTimeUTCDeserializer.class)
     private LocalDateTime startTime;
-    @ApiModelProperty(value = "Date when training instance ends.", required = true, example = "2020-11-25T10:26:02.727Z")
-    @NotNull(message = "{traininginstancecreate.endTime.NotNull.message}")
+    @ApiModelProperty(value = "Date when training instance ends. If omitted, the instance never expires.", example = "2020-11-25T10:26:02.727Z")
     @JsonDeserialize(using = LocalDateTimeUTCDeserializer.class)
     private LocalDateTime endTime;
     @ApiModelProperty(value = "Short textual description of the training instance.", required = true, example = "December instance")

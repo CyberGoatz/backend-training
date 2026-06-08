@@ -194,6 +194,18 @@ public class TrainingInstanceServiceTest {
     }
 
     @Test
+    public void createTrainingInstanceWithoutEndTime() {
+        trainingInstance2.setEndTime(null);
+        given(trainingInstanceRepository.save(trainingInstance2)).willReturn(trainingInstance2);
+        given(organizerRefRepository.createOrGet(anyLong())).willReturn(user);
+
+        TrainingInstance trainingInstance = trainingInstanceService.create(trainingInstance2);
+
+        assertNull(trainingInstance.getEndTime());
+        then(trainingInstanceRepository).should().save(trainingInstance2);
+    }
+
+    @Test
     public void createTrainingInstanceWithTrimmedAccessToken() {
         given(trainingInstanceRepository.save(trainingInstance2)).willReturn(trainingInstance2);
         given(organizerRefRepository.createOrGet(anyLong())).willReturn(user);
@@ -242,6 +254,20 @@ public class TrainingInstanceServiceTest {
         assertThrows(EntityConflictException.class, () -> trainingInstanceService.update(trainingInstance1));
 
         then(trainingInstanceRepository).should(never()).save(any(TrainingInstance.class));
+    }
+
+    @Test
+    public void updateTrainingInstanceWithoutEndTime() {
+        trainingInstance2.setEndTime(null);
+        given(trainingInstanceRepository.findById(anyLong())).willReturn(Optional.of(trainingInstance2));
+        given(organizerRefRepository.createOrGet(anyLong())).willReturn(user);
+        given(trainingInstanceRepository.save(any(TrainingInstance.class))).willReturn(trainingInstance2);
+
+        String token = trainingInstanceService.update(trainingInstance2);
+
+        assertEquals(trainingInstance2.getAccessToken(), token);
+        assertNull(trainingInstance2.getEndTime());
+        then(trainingInstanceRepository).should().save(trainingInstance2);
     }
 
     @Test

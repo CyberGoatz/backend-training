@@ -46,7 +46,8 @@ import java.util.Set;
                 name = "TrainingInstance.findByStartTimeAfterAndEndTimeBeforeAndAccessToken",
                 query = "SELECT ti FROM TrainingInstance ti " +
                         "JOIN FETCH ti.trainingDefinition td " +
-                        "WHERE ti.startTime < :datetime AND ti.endTime > :datetime AND ti.accessToken = :accessToken"
+                        "WHERE ti.startTime < :datetime AND (ti.endTime IS NULL OR ti.endTime > :datetime) " +
+                        "AND ti.accessToken = :accessToken"
         ),
         @NamedQuery(
                 name = "TrainingInstance.findByIdIncludingDefinition",
@@ -74,14 +75,15 @@ import java.util.Set;
         ),
         @NamedQuery(
                 name = "TrainingInstance.isFinished",
-                query = "SELECT (COUNT(ti) > 0) FROM TrainingInstance ti WHERE ti.id = :instanceId AND ti.endTime < :currentTime"
+                query = "SELECT (COUNT(ti) > 0) FROM TrainingInstance ti " +
+                        "WHERE ti.id = :instanceId AND ti.endTime IS NOT NULL AND ti.endTime < :currentTime"
         )
 })
 public class TrainingInstance extends AbstractEntity<Long> {
 
     @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;
-    @Column(name = "end_time", nullable = false)
+    @Column(name = "end_time")
     private LocalDateTime endTime;
     @Column(name = "title", nullable = false)
     private String title;
@@ -382,11 +384,11 @@ public class TrainingInstance extends AbstractEntity<Long> {
     }
 
     public boolean running() {
-        return LocalDateTime.now(Clock.systemUTC()).isAfter(this.startTime) && LocalDateTime.now().isBefore(this.endTime);
+        return LocalDateTime.now(Clock.systemUTC()).isAfter(this.startTime) && !finished();
     }
 
     public boolean finished() {
-        return LocalDateTime.now(Clock.systemUTC()).isAfter(this.endTime);
+        return this.endTime != null && LocalDateTime.now(Clock.systemUTC()).isAfter(this.endTime);
     }
 
     public boolean notStarted() {

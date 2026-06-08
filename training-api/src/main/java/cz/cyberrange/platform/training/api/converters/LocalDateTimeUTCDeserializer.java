@@ -22,7 +22,11 @@ public class LocalDateTimeUTCDeserializer extends StdDeserializer<LocalDateTime>
 
     @Override
     public LocalDateTime deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException {
-        Instant instant = Instant.parse(jp.readValueAs(String.class));
+        String value = jp.readValueAs(String.class);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        Instant instant = Instant.parse(value);
         return LocalDateTime.ofInstant(instant, ZoneId.of(ZoneOffset.UTC.getId()));
     }
 

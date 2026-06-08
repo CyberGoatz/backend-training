@@ -298,7 +298,8 @@ public class VisualizationFacade {
     visualizationProgressDTO.setCurrentTime(
         LocalDateTime.now(Clock.systemUTC()).toEpochSecond(ZoneOffset.UTC));
     visualizationProgressDTO.setEstimatedEndTime(
-        trainingInstance.getEndTime().toEpochSecond(ZoneOffset.UTC));
+        (trainingInstance.getEndTime() == null ? LocalDateTime.now(Clock.systemUTC()) : trainingInstance.getEndTime())
+            .toEpochSecond(ZoneOffset.UTC));
     visualizationProgressDTO.setLevels(
         getLevelDefinitions(trainingDefinitionOfTrainingRun.getId()));
 

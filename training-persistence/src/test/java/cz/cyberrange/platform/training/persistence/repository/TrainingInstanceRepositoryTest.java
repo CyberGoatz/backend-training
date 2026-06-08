@@ -93,6 +93,27 @@ public class TrainingInstanceRepositoryTest {
     }
 
     @Test
+    public void isFinishedWithoutEndTimeReturnFalse() {
+        trainingInstance1.setEndTime(null);
+        TrainingInstance ti = entityManager.persist(trainingInstance1);
+
+        assertFalse(trainingInstanceRepository.isFinished(ti.getId(), LocalDateTime.now(Clock.systemUTC())));
+    }
+
+    @Test
+    public void findByAccessTokenWithoutEndTimeReturnsActiveInstance() {
+        trainingInstance1.setEndTime(null);
+        TrainingInstance ti = entityManager.persist(trainingInstance1);
+
+        Optional<TrainingInstance> result =
+                trainingInstanceRepository.findByStartTimeAfterAndEndTimeBeforeAndAccessToken(
+                        LocalDateTime.now(Clock.systemUTC()), ti.getAccessToken());
+
+        assertTrue(result.isPresent());
+        assertEquals(ti, result.get());
+    }
+
+    @Test
     public void findAllInstancesByTrainingDefinitionId() {
         entityManager.persist(trainingInstance1);
         entityManager.persist(trainingInstance2);

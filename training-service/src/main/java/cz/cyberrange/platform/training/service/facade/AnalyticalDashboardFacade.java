@@ -26,7 +26,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -87,7 +89,8 @@ public class AnalyticalDashboardFacade {
             analysedInstance.setInstanceId(instance.getId());
             analysedInstance.setTitle(instance.getTitle());
             analysedInstance.setDate(instance.getStartTime().toLocalDate());
-            analysedInstance.setDuration(Duration.between(instance.getStartTime(), instance.getEndTime()).toMillis());
+            analysedInstance.setDuration(Duration.between(instance.getStartTime(),
+                    instance.getEndTime() == null ? LocalDateTime.now(Clock.systemUTC()) : instance.getEndTime()).toMillis());
             analysedInstance.setLevels(new ArrayList<>(instanceData.analysedLevelById.values()));
             analysedInstance.getLevels().sort(Comparator.comparingInt(LevelAnalyticalDashboardDTO::getLevelOrder));
             analysedInstance.setParticipants(participantsDetails);
