@@ -225,6 +225,27 @@ public class TrainingRunService {
     }
 
     /**
+     * Finds finished Training Runs for a user ref id.
+     *
+     * @param userRefId user ref id.
+     * @param pageable pageable parameter with information about pagination.
+     * @return page of finished {@link TrainingRun}s of the user.
+     */
+    public Page<TrainingRun> findAllFinishedByParticipantRefId(Long userRefId, Pageable pageable) {
+        return trainingRunRepository.findAllFinishedByParticipantRefId(userRefId, pageable);
+    }
+
+    /**
+     * Finds public completion summary for a user ref id.
+     *
+     * @param userRefId user ref id.
+     * @return completed count, total score and average score.
+     */
+    public List<Object[]> findFinishedSummaryByParticipantRefId(Long userRefId) {
+        return trainingRunRepository.findFinishedSummaryByParticipantRefId(userRefId);
+    }
+
+    /**
      * Finds all Training Runs of particular training instance.
      *
      * @param trainingInstanceId the training instance id

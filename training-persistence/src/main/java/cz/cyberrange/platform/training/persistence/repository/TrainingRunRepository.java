@@ -120,6 +120,37 @@ public interface TrainingRunRepository extends JpaRepository<TrainingRun, Long>,
     List<TrainingRun> findAllFinishedByParticipantRefId(@Param("userRefId") Long userRefId);
 
     /**
+     * Find public-safe finished training runs accessed by participant by their user ref id.
+     *
+     * @param userRefId the participant ref id
+     * @param pageable pageable parameter with information about pagination
+     * @return the page of finished {@link TrainingRun}s accessed by participant
+     */
+    @Query(value = "SELECT tr FROM TrainingRun tr " +
+            "JOIN FETCH tr.participantRef pr " +
+            "JOIN FETCH tr.trainingInstance ti " +
+            "JOIN FETCH ti.trainingDefinition td " +
+            "WHERE pr.userRefId = :userRefId AND tr.state = 'FINISHED'",
+            countQuery = "SELECT COUNT(tr) FROM TrainingRun tr " +
+                    "JOIN tr.participantRef pr " +
+                    "WHERE pr.userRefId = :userRefId AND tr.state = 'FINISHED'")
+    Page<TrainingRun> findAllFinishedByParticipantRefId(@Param("userRefId") Long userRefId, Pageable pageable);
+
+    /**
+     * Find public-safe finished training run summary for participant by their user ref id.
+     *
+     * @param userRefId the participant ref id
+     * @return completed count, total score and average score
+     */
+    @Query("SELECT COUNT(tr), " +
+            "COALESCE(SUM(tr.totalTrainingScore + tr.totalAssessmentScore), 0), " +
+            "COALESCE(AVG(tr.totalTrainingScore + tr.totalAssessmentScore), 0) " +
+            "FROM TrainingRun tr " +
+            "JOIN tr.participantRef pr " +
+            "WHERE pr.userRefId = :userRefId AND tr.state = 'FINISHED'")
+    List<Object[]> findFinishedSummaryByParticipantRefId(@Param("userRefId") Long userRefId);
+
+    /**
      * Find training run by id including current level
      *
      * @param trainingRunId the training run id

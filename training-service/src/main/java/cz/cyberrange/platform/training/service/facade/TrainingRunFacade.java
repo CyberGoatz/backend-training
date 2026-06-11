@@ -14,6 +14,7 @@ import cz.cyberrange.platform.training.api.dto.hint.HintDTO;
 import cz.cyberrange.platform.training.api.dto.run.AccessTrainingRunDTO;
 import cz.cyberrange.platform.training.api.dto.run.AccessedTrainingRunDTO;
 import cz.cyberrange.platform.training.api.dto.run.PublicTrainingCompletionDTO;
+import cz.cyberrange.platform.training.api.dto.run.PublicTrainingSummaryDTO;
 import cz.cyberrange.platform.training.api.dto.run.TrainingRunByIdDTO;
 import cz.cyberrange.platform.training.api.dto.run.TrainingRunDTO;
 import cz.cyberrange.platform.training.api.dto.traininglevel.LevelReferenceSolutionDTO;
@@ -243,6 +244,39 @@ public class TrainingRunFacade {
         return trainingRunService.findAllFinishedByParticipantRefId(userRefId).stream()
                 .map(this::toPublicTrainingCompletionDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Finds public-safe completed Training Runs for a user.
+     *
+     * @param userRefId user ref id.
+     * @param pageable pageable parameter with information about pagination.
+     * @return public-safe completed training summaries page.
+     */
+    @TransactionalRO
+    public PageResultResource<PublicTrainingCompletionDTO> findPublicCompletedTrainingRuns(Long userRefId, Pageable pageable) {
+        Page<TrainingRun> trainingRuns = trainingRunService.findAllFinishedByParticipantRefId(userRefId, pageable);
+        List<PublicTrainingCompletionDTO> completions = trainingRuns.stream()
+                .map(this::toPublicTrainingCompletionDTO)
+                .collect(Collectors.toList());
+        return new PageResultResource<>(completions, trainingRunMapper.createPagination(trainingRuns));
+    }
+
+    /**
+     * Finds public-safe completed Training Run summary for a user.
+     *
+     * @param userRefId user ref id.
+     * @return public-safe completion summary.
+     */
+    @TransactionalRO
+    public PublicTrainingSummaryDTO findPublicCompletedTrainingSummary(Long userRefId) {
+        List<Object[]> summaryRows = trainingRunService.findFinishedSummaryByParticipantRefId(userRefId);
+        Object[] summary = summaryRows.isEmpty() ? new Object[]{0L, 0L, 0D} : summaryRows.get(0);
+        PublicTrainingSummaryDTO summaryDTO = new PublicTrainingSummaryDTO();
+        summaryDTO.setCompletedCount(((Number) summary[0]).longValue());
+        summaryDTO.setTotalScore(((Number) summary[1]).longValue());
+        summaryDTO.setAverageScore(Math.round(((Number) summary[2]).doubleValue()));
+        return summaryDTO;
     }
 
     /**
@@ -690,7 +724,8 @@ public class TrainingRunFacade {
     }
 
     private Actions resolvePossibleActions(AccessedTrainingRunDTO trainingRunDTO, TRState trainingRunState) {
-        boolean isTrainingInstanceRunning = LocalDateTime.now(Clock.systemUTC()).isBefore(trainingRunDTO.getTrainingInstanceEndDate());
+        boolean isTrainingInstanceRunning = trainingRunDTO.getTrainingInstanceEndDate() == null ||
+                LocalDateTime.now(Clock.systemUTC()).isBefore(trainingRunDTO.getTrainingInstanceEndDate());
         if (trainingRunState == TRState.FINISHED || !isTrainingInstanceRunning) {
             return Actions.RESULTS;
         } else {
