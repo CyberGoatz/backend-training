@@ -155,6 +155,32 @@ public class SandboxApiService {
     }
 
     /**
+     * Cleanup sandbox allocation unit and optionally provision a replacement in the same pool.
+     *
+     * @param allocationUnitId the sandbox allocation unit id
+     * @param force            whether the cleanup should delete locked/running sandboxes
+     * @param replace          whether a replacement sandbox should be provisioned after cleanup
+     */
+    public void cleanupSandboxAllocationUnit(Integer allocationUnitId, boolean force, boolean replace) {
+        try {
+            sandboxServiceWebClient
+                    .post()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/sandbox-allocation-units/{allocationUnitId}/cleanup-request")
+                            .queryParam("force", force)
+                            .queryParam("replace", replace)
+                            .build(allocationUnitId))
+                    .retrieve()
+                    .bodyToMono(Void.class)
+                    .block();
+        } catch (CustomWebClientException ex) {
+            throw new MicroserviceApiException(
+                    "Error when calling OpenStack Sandbox Service API to cleanup sandbox allocation unit (ID: "
+                            + allocationUnitId + ").", ex);
+        }
+    }
+
+    /**
      * Get APG variables defined in the sandbox definition of the pool.
      *
      * @param poolId the pool id

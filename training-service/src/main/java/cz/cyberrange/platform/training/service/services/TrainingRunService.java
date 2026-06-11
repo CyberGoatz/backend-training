@@ -455,7 +455,8 @@ public class TrainingRunService {
             throw new EntityConflictException(new EntityErrorDetail(TrainingRun.class, "id", trainingRunId.getClass(), trainingRunId,
                     "Cannot resume finished training run."));
         }
-        if (trainingInstance.getEndTime().isBefore(LocalDateTime.now(Clock.systemUTC()))) {
+        if (trainingInstance.getEndTime() != null &&
+                trainingInstance.getEndTime().isBefore(LocalDateTime.now(Clock.systemUTC()))) {
             throw new EntityConflictException(new EntityErrorDetail(TrainingRun.class, "id", trainingRunId.getClass(), trainingRunId,
                     "Cannot resume training run after end of training instance."));
         }

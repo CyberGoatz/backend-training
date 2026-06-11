@@ -573,7 +573,8 @@ public class TrainingDefinitionFacade {
     private boolean checkIfCanBeArchived(Long definitionId) {
         List<TrainingInstance> instances = trainingDefinitionService.findAllTrainingInstancesByTrainingDefinitionId(definitionId);
         for (TrainingInstance trainingInstance : instances) {
-            if (trainingInstance.getEndTime().isAfter(LocalDateTime.now(Clock.systemUTC()))) {
+            if (trainingInstance.getEndTime() == null ||
+                    trainingInstance.getEndTime().isAfter(LocalDateTime.now(Clock.systemUTC()))) {
                 return false;
             }
         }

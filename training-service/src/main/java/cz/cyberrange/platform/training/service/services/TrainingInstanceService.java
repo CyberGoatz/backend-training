@@ -139,10 +139,7 @@ public class TrainingInstanceService {
      */
     public TrainingInstance create(TrainingInstance trainingInstance) {
         trainingInstance.setAccessToken(generateAccessToken(trainingInstance.getAccessToken().trim()));
-        if (trainingInstance.getStartTime().isAfter(trainingInstance.getEndTime())) {
-            throw new EntityConflictException(new EntityErrorDetail(TrainingInstance.class, "id", trainingInstance.getId().getClass(), trainingInstance.getId(),
-                    "End time must be later than start time."));
-        }
+        validateStartAndEndTime(trainingInstance);
         addLoggedInUserAsOrganizerToTrainingInstance(trainingInstance);
         return auditAndSave(trainingInstance);
     }
@@ -178,7 +175,7 @@ public class TrainingInstanceService {
     }
 
     private void validateStartAndEndTime(TrainingInstance trainingInstance) {
-        if (trainingInstance.getStartTime().isAfter(trainingInstance.getEndTime())) {
+        if (trainingInstance.getEndTime() != null && trainingInstance.getStartTime().isAfter(trainingInstance.getEndTime())) {
             throw new EntityConflictException(new EntityErrorDetail(TrainingInstance.class, "id",
                     trainingInstance.getId().getClass(), trainingInstance.getId(),
                     "End time must be later than start time."));
