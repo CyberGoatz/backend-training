@@ -24,7 +24,10 @@ import cz.cyberrange.platform.training.api.enums.LevelType;
 import cz.cyberrange.platform.training.api.enums.QuestionType;
 import cz.cyberrange.platform.training.api.exceptions.EntityConflictException;
 import cz.cyberrange.platform.training.api.exceptions.EntityErrorDetail;
+import cz.cyberrange.platform.training.api.exceptions.MicroserviceApiException;
 import cz.cyberrange.platform.training.api.responses.PageResultResource;
+import cz.cyberrange.platform.training.api.responses.SandboxInfo;
+import cz.cyberrange.platform.training.api.responses.SandboxLockInfo;
 import cz.cyberrange.platform.training.api.responses.VariantAnswer;
 import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
 import cz.cyberrange.platform.training.persistence.model.AccessLevel;
@@ -67,6 +70,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -331,11 +335,12 @@ public class TrainingRunFacade {
         try {
             // During this action we create a new TrainingRun and lock and get sandbox from OpenStack Sandbox API
             TrainingRun trainingRun = trainingRunService.createTrainingRun(trainingInstance, participantRefId);
+            SandboxInfo sandboxInfo = null;
             if (!trainingInstance.isLocalEnvironment()) {
-                trainingRunService.assignSandbox(trainingRun, trainingInstance.getPoolId());
+                sandboxInfo = trainingRunService.assignSandbox(trainingRun, trainingInstance.getPoolId());
             }
             trainingRunService.auditTrainingRunStarted(trainingRun);
-            return convertToAccessTrainingRunDTO(trainingRun);
+            return convertToAccessTrainingRunDTO(trainingRun, sandboxInfo == null ? null : sandboxInfo.getExpiresAt(), sandboxInfo != null);
         } catch (Exception e) {
             // delete/rollback acquisition lock when no training run either sandbox is assigned
             trainingRunService.deleteTrAcquisitionLockToPreventManyRequestsFromSameUser(participantRefId, trainingInstance.getId());
@@ -344,12 +349,20 @@ public class TrainingRunFacade {
     }
 
     private AccessTrainingRunDTO convertToAccessTrainingRunDTO(TrainingRun trainingRun) {
+        return convertToAccessTrainingRunDTO(trainingRun, null, false);
+    }
+
+    private AccessTrainingRunDTO convertToAccessTrainingRunDTO(TrainingRun trainingRun,
+                                                               OffsetDateTime sandboxExpiresAt,
+                                                               boolean sandboxAssignedInCurrentRequest) {
         AccessTrainingRunDTO accessTrainingRunDTO = new AccessTrainingRunDTO();
         accessTrainingRunDTO.setTrainingRunID(trainingRun.getId());
         accessTrainingRunDTO.setAbstractLevelDTO(getAbstractLevelDTO(trainingRun.getCurrentLevel()));
         accessTrainingRunDTO.setShowStepperBar(trainingRun.getTrainingInstance().isShowStepperBar());
         accessTrainingRunDTO.setInfoAboutLevels(getInfoAboutLevels(trainingRun.getCurrentLevel().getTrainingDefinition().getId()));
         accessTrainingRunDTO.setSandboxInstanceRefId(trainingRun.getSandboxInstanceRefId());
+        accessTrainingRunDTO.setSandboxInstanceAllocationId(trainingRun.getSandboxInstanceAllocationId());
+        setSandboxExpiry(accessTrainingRunDTO, trainingRun, sandboxExpiresAt, sandboxAssignedInCurrentRequest);
         accessTrainingRunDTO.setInstanceId(trainingRun.getTrainingInstance().getId());
         accessTrainingRunDTO.setStartTime(trainingRun.getStartTime());
         accessTrainingRunDTO.setLocalEnvironment(trainingRun.getTrainingInstance().isLocalEnvironment());
@@ -366,6 +379,32 @@ public class TrainingRunFacade {
             );
         }
         return accessTrainingRunDTO;
+    }
+
+    private void setSandboxExpiry(AccessTrainingRunDTO accessTrainingRunDTO,
+                                  TrainingRun trainingRun,
+                                  OffsetDateTime sandboxExpiresAt,
+                                  boolean sandboxAssignedInCurrentRequest) {
+        if (sandboxExpiresAt != null) {
+            accessTrainingRunDTO.setSandboxExpiresAt(sandboxExpiresAt);
+            return;
+        }
+        if (sandboxAssignedInCurrentRequest) {
+            return;
+        }
+        Integer allocationUnitId = trainingRun.getSandboxInstanceAllocationId();
+        if (trainingRun.getTrainingInstance().isLocalEnvironment() || allocationUnitId == null) {
+            return;
+        }
+        try {
+            SandboxLockInfo sandboxLockInfo = sandboxApiService.getSandboxAllocationUnitLock(allocationUnitId);
+            if (sandboxLockInfo != null) {
+                accessTrainingRunDTO.setSandboxExpiresAt(sandboxLockInfo.getExpiresAt());
+            }
+        } catch (MicroserviceApiException ex) {
+            LOG.warn("Could not load sandbox lock expiry for training run {} and allocation unit {}.",
+                    trainingRun.getId(), allocationUnitId, ex);
+        }
     }
 
     private List<BasicLevelInfoDTO> getInfoAboutLevels(Long definitionId) {
@@ -726,7 +765,9 @@ public class TrainingRunFacade {
     private Actions resolvePossibleActions(AccessedTrainingRunDTO trainingRunDTO, TRState trainingRunState) {
         boolean isTrainingInstanceRunning = trainingRunDTO.getTrainingInstanceEndDate() == null ||
                 LocalDateTime.now(Clock.systemUTC()).isBefore(trainingRunDTO.getTrainingInstanceEndDate());
-        if (trainingRunState == TRState.FINISHED || !isTrainingInstanceRunning) {
+        if (trainingRunState == TRState.EXPIRED) {
+            return Actions.SANDBOX_EXPIRED;
+        } else if (trainingRunState == TRState.FINISHED || !isTrainingInstanceRunning) {
             return Actions.RESULTS;
         } else {
             return Actions.RESUME;

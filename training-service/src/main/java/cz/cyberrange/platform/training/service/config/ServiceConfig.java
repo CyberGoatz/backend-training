@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.env.Environment;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
@@ -19,6 +20,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
  */
 @Configuration
 @EnableAsync(proxyTargetClass = true)
+@EnableScheduling
 @Import({MicroserviceRegistrationConfiguration.class,
         ElasticsearchServiceConfig.class,
         PersistenceConfig.class,

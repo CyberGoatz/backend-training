@@ -18,5 +18,10 @@ public enum Actions {
     /**
      * Resume actions.
      */
-    RESUME;
+    RESUME,
+
+    /**
+     * Sandbox assigned to the training run expired and the run cannot be resumed.
+     */
+    SANDBOX_EXPIRED;
 }

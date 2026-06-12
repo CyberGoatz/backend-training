@@ -36,6 +36,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -96,6 +97,8 @@ public class TrainingRunServiceTest {
     private SecurityService securityService;
     @MockBean
     private AnswersStorageApiService answersStorageApiService;
+    @MockBean
+    private PlatformTransactionManager transactionManager;
 
     private TrainingRun trainingRun1, trainingRun2;
     private TrainingLevel trainingLevel, trainingLevel2;
@@ -113,7 +116,7 @@ public class TrainingRunServiceTest {
         trainingRunService = new TrainingRunService(trainingRunRepository, abstractLevelRepository, trainingInstanceRepository,
                 participantRefRepository, hintRepository, auditEventService, elasticsearchApiService, answersStorageApiService,
                 securityService, questionAnswerRepository, sandboxApiService, trAcquisitionLockRepository, submissionRepository,
-                trainingLevelResultRepository);
+                trainingLevelResultRepository, transactionManager);
         given(trainingLevelResultRepository.findByTrainingRunIdAndLevelId(anyLong(), anyLong()))
                 .willReturn(Optional.empty());
 
@@ -468,7 +471,7 @@ public class TrainingRunServiceTest {
     public void assignSandbox() throws Exception {
         trainingRun1.setSandboxInstanceRefId(null);
         trainingRun1.setSandboxInstanceAllocationId(null);
-        given(sandboxApiService.getAndLockSandbox(anyLong(), eq(trainingRun1.getTrainingInstance().getAccessToken()))).willReturn(sandboxInfo);
+        given(sandboxApiService.getAndLockSandbox(anyLong(), eq(trainingRun1.getTrainingInstance().getAccessToken()), anyLong())).willReturn(sandboxInfo);
         trainingRunService.assignSandbox(trainingRun1, trainingRun1.getTrainingInstance().getPoolId());
         then(trainingRunRepository).should().save(trainingRun1);
         assertEquals(sandboxInfo.getId(), trainingRun1.getSandboxInstanceRefId());
@@ -479,7 +482,7 @@ public class TrainingRunServiceTest {
     public void assignSandboxNoAvailable() throws Exception {
         trainingRun1.setSandboxInstanceRefId(null);
         trainingRun1.setSandboxInstanceAllocationId(null);
-        willThrow(new ForbiddenException("There is no available sandbox, wait a minute and try again or ask organizer to allocate more sandboxes.")).given(sandboxApiService).getAndLockSandbox(anyLong(), eq(trainingRun1.getTrainingInstance().getAccessToken()));
+        willThrow(new ForbiddenException("There is no available sandbox, wait a minute and try again or ask organizer to allocate more sandboxes.")).given(sandboxApiService).getAndLockSandbox(anyLong(), eq(trainingRun1.getTrainingInstance().getAccessToken()), anyLong());
         assertThrows(ForbiddenException.class, () -> trainingRunService.assignSandbox(trainingRun1, trainingRun1.getTrainingInstance().getPoolId()));
         then(trainingRunRepository).should(never()).save(trainingRun1);
     }
@@ -488,7 +491,7 @@ public class TrainingRunServiceTest {
     public void assignSandboxMicroserviceException() throws Exception {
         trainingRun1.setSandboxInstanceRefId(null);
         trainingRun1.setSandboxInstanceAllocationId(null);
-        willThrow(new MicroserviceApiException("Error", new CustomWebClientException(HttpStatus.NOT_FOUND, PythonApiError.of("Some error")))).given(sandboxApiService).getAndLockSandbox(anyLong(), eq(trainingRun1.getTrainingInstance().getAccessToken()));
+        willThrow(new MicroserviceApiException("Error", new CustomWebClientException(HttpStatus.NOT_FOUND, PythonApiError.of("Some error")))).given(sandboxApiService).getAndLockSandbox(anyLong(), eq(trainingRun1.getTrainingInstance().getAccessToken()), anyLong());
         assertThrows(MicroserviceApiException.class, () -> trainingRunService.assignSandbox(trainingRun1, trainingRun1.getTrainingInstance().getPoolId()));
         then(trainingRunRepository).should(never()).save(trainingRun1);
     }

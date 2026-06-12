@@ -12,6 +12,7 @@ import lombok.Setter;
 import lombok.ToString;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +31,10 @@ public class AccessTrainingRunDTO {
     private boolean showStepperBar;
     @ApiModelProperty(value = "Main identifier of sandbox which is assigned to training run.", example = "2")
     private String sandboxInstanceRefId;
+    @ApiModelProperty(value = "Main identifier of sandbox allocation unit which is assigned to training run.", example = "2")
+    private Integer sandboxInstanceAllocationId;
+    @ApiModelProperty(value = "Date when assigned sandbox session expires.", example = "2020-11-20T11:28:02.727Z")
+    private OffsetDateTime sandboxExpiresAt;
     @ApiModelProperty(value = "First level in the current training run.")
     private AbstractLevelDTO abstractLevelDTO;
     @ApiModelProperty(value = "Information about all levels in training instance.")

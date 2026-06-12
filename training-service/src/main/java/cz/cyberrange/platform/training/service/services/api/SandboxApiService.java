@@ -7,6 +7,7 @@ import cz.cyberrange.platform.training.api.responses.LockedPoolInfo;
 import cz.cyberrange.platform.training.api.responses.PoolInfoDTO;
 import cz.cyberrange.platform.training.api.responses.SandboxDefinitionInfo;
 import cz.cyberrange.platform.training.api.responses.SandboxInfo;
+import cz.cyberrange.platform.training.api.responses.SandboxLockInfo;
 import cz.cyberrange.platform.training.api.responses.Variables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -138,11 +139,14 @@ public class SandboxApiService {
      * @param trainingAccessToken the training access token
      * @return the sandbox info
      */
-    public SandboxInfo getAndLockSandbox(Long poolId, String trainingAccessToken) {
+    public SandboxInfo getAndLockSandbox(Long poolId, String trainingAccessToken, long lockDurationMinutes) {
         try {
             return sandboxServiceWebClient
                     .get()
-                    .uri("/pools/{poolId}/sandboxes/get-and-lock/{trainingAccessToken}", poolId, trainingAccessToken)
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/pools/{poolId}/sandboxes/get-and-lock/{trainingAccessToken}")
+                            .queryParam("lock_duration_minutes", lockDurationMinutes)
+                            .build(poolId, trainingAccessToken))
                     .retrieve()
                     .bodyToMono(SandboxInfo.class)
                     .block();
@@ -151,6 +155,27 @@ public class SandboxApiService {
                 throw new ForbiddenException("There is no available sandbox, wait a minute and try again or ask organizer to allocate more sandboxes.");
             }
             throw new MicroserviceApiException("Error when calling OpenStack Sandbox Service API to get unlocked sandbox from pool (ID: " + poolId + ").", ex);
+        }
+    }
+
+    /**
+     * Get sandbox lock information for an allocation unit.
+     *
+     * @param allocationUnitId the sandbox allocation unit id
+     * @return sandbox lock information
+     */
+    public SandboxLockInfo getSandboxAllocationUnitLock(Integer allocationUnitId) {
+        try {
+            return sandboxServiceWebClient
+                    .get()
+                    .uri("/sandbox-allocation-units/{allocationUnitId}/lock", allocationUnitId)
+                    .retrieve()
+                    .bodyToMono(SandboxLockInfo.class)
+                    .block();
+        } catch (CustomWebClientException ex) {
+            throw new MicroserviceApiException(
+                    "Error when calling OpenStack Sandbox Service API to get sandbox allocation unit lock (ID: "
+                            + allocationUnitId + ").", ex);
         }
     }
 

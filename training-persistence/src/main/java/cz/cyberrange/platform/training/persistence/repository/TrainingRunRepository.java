@@ -211,6 +211,42 @@ public interface TrainingRunRepository extends JpaRepository<TrainingRun, Long>,
                                                     Pageable pageable);
 
     /**
+     * Find all running training runs assigned to a sandbox allocation unit.
+     *
+     * @return running {@link TrainingRun}s with sandbox allocation unit ids.
+     */
+    @Query("SELECT tr FROM TrainingRun tr " +
+            "JOIN FETCH tr.trainingInstance ti " +
+            "JOIN FETCH ti.trainingDefinition td " +
+            "JOIN FETCH tr.participantRef pr " +
+            "WHERE tr.state = 'RUNNING' AND tr.sandboxInstanceAllocationId IS NOT NULL")
+    List<TrainingRun> findRunningCloudTrainingRunsWithSandboxAllocation();
+
+    /**
+     * Find all expired training runs still assigned to a sandbox allocation unit.
+     *
+     * @return expired {@link TrainingRun}s with sandbox allocation unit ids.
+     */
+    @Query("SELECT tr FROM TrainingRun tr " +
+            "JOIN FETCH tr.trainingInstance ti " +
+            "JOIN FETCH ti.trainingDefinition td " +
+            "JOIN FETCH tr.participantRef pr " +
+            "WHERE tr.state = 'EXPIRED' AND tr.sandboxInstanceAllocationId IS NOT NULL")
+    List<TrainingRun> findExpiredCloudTrainingRunsWithSandboxAllocation();
+
+    /**
+     * Find all finished training runs still assigned to a sandbox allocation unit.
+     *
+     * @return finished {@link TrainingRun}s with sandbox allocation unit ids.
+     */
+    @Query("SELECT tr FROM TrainingRun tr " +
+            "JOIN FETCH tr.trainingInstance ti " +
+            "JOIN FETCH ti.trainingDefinition td " +
+            "JOIN FETCH tr.participantRef pr " +
+            "WHERE tr.state = 'FINISHED' AND tr.sandboxInstanceAllocationId IS NOT NULL")
+    List<TrainingRun> findFinishedCloudTrainingRunsWithSandboxAllocation();
+
+    /**
      * Delete all training runs by training instance.
      *
      * @param trainingInstanceId the training instance id

@@ -15,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.ClientRequest;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
@@ -22,6 +23,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.util.Map;
 
 /**
  * The type Web client config.
@@ -41,8 +44,16 @@ public class WebClientConfig {
     private String answersStorageURI;
     @Value("${training-feedback-service.uri}")
     private String trainingFeedbackServiceURI;
+    @Value("${training.sandbox.service-account.token-uri:}")
+    private String sandboxServiceAccountTokenUri;
+    @Value("${training.sandbox.service-account.client-id:}")
+    private String sandboxServiceAccountClientId;
+    @Value("${training.sandbox.service-account.client-secret:}")
+    private String sandboxServiceAccountClientSecret;
 
     private ObjectMapper objectMapper;
+    private String cachedSandboxServiceAccountToken;
+    private Instant cachedSandboxServiceAccountTokenExpiresAt = Instant.EPOCH;
 
     @Autowired
     public WebClientConfig(ObjectMapper objectMapper) {
@@ -64,7 +75,7 @@ public class WebClientConfig {
                     headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
                 })
                 .filters(exchangeFilterFunctions -> {
-                    exchangeFilterFunctions.add(addSecurityHeader());
+                    exchangeFilterFunctions.add(addSecurityHeader(true));
                     exchangeFilterFunctions.add(openStackSandboxServiceExceptionHandlingFunction());
                 })
                 .build();
@@ -85,7 +96,7 @@ public class WebClientConfig {
                     headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
                 })
                 .filters(exchangeFilterFunctions -> {
-                    exchangeFilterFunctions.add(addSecurityHeader());
+                    exchangeFilterFunctions.add(addSecurityHeader(false));
                     exchangeFilterFunctions.add(javaMicroserviceExceptionHandlingFunction());
                 })
                 .build();
@@ -106,7 +117,7 @@ public class WebClientConfig {
                     headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
                 })
                 .filters(exchangeFilterFunctions -> {
-                    exchangeFilterFunctions.add(addSecurityHeader());
+                    exchangeFilterFunctions.add(addSecurityHeader(false));
                     exchangeFilterFunctions.add(javaMicroserviceExceptionHandlingFunction());
                 })
                 .exchangeStrategies(ExchangeStrategies.builder()
@@ -130,7 +141,7 @@ public class WebClientConfig {
                     headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
                 })
                 .filters(exchangeFilterFunctions -> {
-                    exchangeFilterFunctions.add(addSecurityHeader());
+                    exchangeFilterFunctions.add(addSecurityHeader(false));
                     exchangeFilterFunctions.add(javaMicroserviceExceptionHandlingFunction());
                 })
                 .build();
@@ -150,21 +161,62 @@ public class WebClientConfig {
                     headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
                 })
                 .filters(exchangeFilterFunctions -> {
-                    exchangeFilterFunctions.add(addSecurityHeader());
+                    exchangeFilterFunctions.add(addSecurityHeader(false));
                     exchangeFilterFunctions.add(javaMicroserviceExceptionHandlingFunction());
                 })
                 .build();
     }
 
-    private ExchangeFilterFunction addSecurityHeader() {
+    private ExchangeFilterFunction addSecurityHeader(boolean useSandboxServiceAccountFallback) {
         return (request, next) -> {
-            JwtAuthenticationToken jwtAuthentication = (JwtAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
-            Jwt jwtToken = jwtAuthentication.getToken();
+            String token = null;
+            if (SecurityContextHolder.getContext().getAuthentication() instanceof JwtAuthenticationToken jwtAuthentication) {
+                Jwt jwtToken = jwtAuthentication.getToken();
+                token = jwtToken.getTokenValue();
+            } else if (useSandboxServiceAccountFallback) {
+                token = getSandboxServiceAccountToken();
+            }
+
+            if (token == null || token.isBlank()) {
+                return next.exchange(request);
+            }
             ClientRequest filtered = ClientRequest.from(request)
-                    .header("Authorization", "Bearer " + jwtToken.getTokenValue())
+                    .header("Authorization", "Bearer " + token)
                     .build();
             return next.exchange(filtered);
         };
+    }
+
+    private synchronized String getSandboxServiceAccountToken() {
+        if (cachedSandboxServiceAccountToken != null
+                && cachedSandboxServiceAccountTokenExpiresAt.isAfter(Instant.now().plusSeconds(30))) {
+            return cachedSandboxServiceAccountToken;
+        }
+        if (sandboxServiceAccountTokenUri.isBlank()
+                || sandboxServiceAccountClientId.isBlank()
+                || sandboxServiceAccountClientSecret.isBlank()) {
+            throw new IllegalStateException("Sandbox service-account OAuth2 client is not configured.");
+        }
+
+        Map<?, ?> response = WebClient.builder()
+                .build()
+                .post()
+                .uri(sandboxServiceAccountTokenUri)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData("grant_type", "client_credentials")
+                        .with("client_id", sandboxServiceAccountClientId)
+                        .with("client_secret", sandboxServiceAccountClientSecret))
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block();
+
+        if (response == null || response.get("access_token") == null) {
+            throw new IllegalStateException("Sandbox service-account OAuth2 token response did not contain access_token.");
+        }
+        long expiresIn = response.get("expires_in") instanceof Number number ? number.longValue() : 60L;
+        cachedSandboxServiceAccountToken = response.get("access_token").toString();
+        cachedSandboxServiceAccountTokenExpiresAt = Instant.now().plusSeconds(Math.max(expiresIn - 30L, 1L));
+        return cachedSandboxServiceAccountToken;
     }
 
     private ExchangeFilterFunction openStackSandboxServiceExceptionHandlingFunction() {

@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
@@ -44,6 +45,9 @@ public class TrainingInstanceCreateDTO {
     private boolean localEnvironment;
     @ApiModelProperty(value = "Id of sandbox definition assigned to training instance", example = "1")
     private Long sandboxDefinitionId;
+    @ApiModelProperty(value = "Sandbox session duration in minutes. Defaults to 60 minutes.", example = "120")
+    @Min(value = 1, message = "{trainingInstance.sandboxDurationMinutes.Min.message}")
+    private Integer sandboxDurationMinutes = 60;
     @ApiModelProperty(value = "Sign if stepper bar should be displayed.", required = true, example = "true")
     private boolean showStepperBar;
     @ApiModelProperty(value = "Indicates if trainee can during training run move to the previous already solved levels.", example = "true")
@@ -194,6 +198,24 @@ public class TrainingInstanceCreateDTO {
     }
 
     /**
+     * Gets sandbox session duration in minutes.
+     *
+     * @return sandbox session duration in minutes
+     */
+    public Integer getSandboxDurationMinutes() {
+        return sandboxDurationMinutes;
+    }
+
+    /**
+     * Sets sandbox session duration in minutes.
+     *
+     * @param sandboxDurationMinutes sandbox session duration in minutes
+     */
+    public void setSandboxDurationMinutes(Integer sandboxDurationMinutes) {
+        this.sandboxDurationMinutes = sandboxDurationMinutes;
+    }
+
+    /**
      * Gets if stepper bar is shown while in run.
      *
      * @return true if bar is shown
@@ -239,6 +261,7 @@ public class TrainingInstanceCreateDTO {
                 ", trainingDefinitionId=" + trainingDefinitionId +
                 ", poolId=" + poolId +
                 ", localEnvironment=" + localEnvironment +
+                ", sandboxDurationMinutes=" + sandboxDurationMinutes +
                 ", showStepperBar=" + showStepperBar +
                 ", backwardMode=" + backwardMode +
                 '}';
