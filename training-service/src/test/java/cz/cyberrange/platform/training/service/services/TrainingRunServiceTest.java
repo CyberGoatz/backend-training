@@ -14,6 +14,7 @@ import cz.cyberrange.platform.training.api.exceptions.TooManyRequestsException;
 import cz.cyberrange.platform.training.api.exceptions.errors.JavaApiError;
 import cz.cyberrange.platform.training.api.exceptions.errors.PythonApiError;
 import cz.cyberrange.platform.training.api.responses.SandboxInfo;
+import cz.cyberrange.platform.training.api.responses.SandboxLockInfo;
 import cz.cyberrange.platform.training.persistence.model.*;
 import cz.cyberrange.platform.training.persistence.model.enums.TRState;
 import cz.cyberrange.platform.training.persistence.repository.AbstractLevelRepository;
@@ -49,6 +50,7 @@ import reactor.core.publisher.Mono;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -175,8 +177,13 @@ public class TrainingRunServiceTest {
         trainingRun2 = testDataFactory.getRunningRun();
         trainingRun2.setId(2L);
         trainingRun2.setCurrentLevel(infoLevel);
+        trainingRun2.setLevelAnswered(true);
         trainingRun2.setParticipantRef(participantRef);
         trainingRun2.setTrainingInstance(trainingInstance2);
+
+        SandboxLockInfo activeLock = new SandboxLockInfo();
+        activeLock.setExpiresAt(OffsetDateTime.now().plusMinutes(10));
+        given(sandboxApiService.getSandboxAllocationUnitLock(anyInt())).willReturn(activeLock);
 
         assessmentLevel = testDataFactory.getTest();
         assessmentLevel.setId(3L);
@@ -468,7 +475,7 @@ public class TrainingRunServiceTest {
     public void assignSandbox() throws Exception {
         trainingRun1.setSandboxInstanceRefId(null);
         trainingRun1.setSandboxInstanceAllocationId(null);
-        given(sandboxApiService.getAndLockSandbox(anyLong(), eq(trainingRun1.getTrainingInstance().getAccessToken()))).willReturn(sandboxInfo);
+        given(sandboxApiService.getAndLockSandbox(anyLong(), eq(trainingRun1.getTrainingInstance().getAccessToken()), anyLong())).willReturn(sandboxInfo);
         trainingRunService.assignSandbox(trainingRun1, trainingRun1.getTrainingInstance().getPoolId());
         then(trainingRunRepository).should().save(trainingRun1);
         assertEquals(sandboxInfo.getId(), trainingRun1.getSandboxInstanceRefId());
@@ -479,7 +486,7 @@ public class TrainingRunServiceTest {
     public void assignSandboxNoAvailable() throws Exception {
         trainingRun1.setSandboxInstanceRefId(null);
         trainingRun1.setSandboxInstanceAllocationId(null);
-        willThrow(new ForbiddenException("There is no available sandbox, wait a minute and try again or ask organizer to allocate more sandboxes.")).given(sandboxApiService).getAndLockSandbox(anyLong(), eq(trainingRun1.getTrainingInstance().getAccessToken()));
+        willThrow(new ForbiddenException("There is no available sandbox, wait a minute and try again or ask organizer to allocate more sandboxes.")).given(sandboxApiService).getAndLockSandbox(anyLong(), eq(trainingRun1.getTrainingInstance().getAccessToken()), anyLong());
         assertThrows(ForbiddenException.class, () -> trainingRunService.assignSandbox(trainingRun1, trainingRun1.getTrainingInstance().getPoolId()));
         then(trainingRunRepository).should(never()).save(trainingRun1);
     }
@@ -488,32 +495,33 @@ public class TrainingRunServiceTest {
     public void assignSandboxMicroserviceException() throws Exception {
         trainingRun1.setSandboxInstanceRefId(null);
         trainingRun1.setSandboxInstanceAllocationId(null);
-        willThrow(new MicroserviceApiException("Error", new CustomWebClientException(HttpStatus.NOT_FOUND, PythonApiError.of("Some error")))).given(sandboxApiService).getAndLockSandbox(anyLong(), eq(trainingRun1.getTrainingInstance().getAccessToken()));
+        willThrow(new MicroserviceApiException("Error", new CustomWebClientException(HttpStatus.NOT_FOUND, PythonApiError.of("Some error")))).given(sandboxApiService).getAndLockSandbox(anyLong(), eq(trainingRun1.getTrainingInstance().getAccessToken()), anyLong());
         assertThrows(MicroserviceApiException.class, () -> trainingRunService.assignSandbox(trainingRun1, trainingRun1.getTrainingInstance().getPoolId()));
         then(trainingRunRepository).should(never()).save(trainingRun1);
     }
 
     @Test
     public void resumeTrainingRun() {
-        given(trainingRunRepository.findByIdWithLevel(any(Long.class))).willReturn(Optional.of(trainingRun1));
+        given(trainingRunRepository.findByIdWithLevelForRead(any(Long.class))).willReturn(Optional.of(trainingRun1));
         TrainingRun trainingRun = trainingRunService.resumeTrainingRun(trainingRun1.getId());
 
         assertEquals(trainingRun.getId(), trainingRun1.getId());
         assertTrue(trainingRun.getCurrentLevel() instanceof TrainingLevel);
+        then(trainingRunRepository).should(never()).findByIdWithLevel(anyLong());
     }
 
     @Test
     public void resumeTrainingRunWithNotFound() {
         trainingRun1.setSandboxInstanceRefId(null);
         trainingRun1.setSandboxInstanceAllocationId(null);
-        given(trainingRunRepository.findByIdWithLevel(any(Long.class))).willReturn(Optional.empty());
+        given(trainingRunRepository.findByIdWithLevelForRead(any(Long.class))).willReturn(Optional.empty());
         assertThrows(EntityNotFoundException.class, () -> trainingRunService.resumeTrainingRun(trainingRun1.getId()));
     }
 
     @Test
     public void resumeTrainingRunFinished() {
         trainingRun1.setState(TRState.FINISHED);
-        given(trainingRunRepository.findByIdWithLevel(any(Long.class))).willReturn(Optional.of(trainingRun1));
+        given(trainingRunRepository.findByIdWithLevelForRead(any(Long.class))).willReturn(Optional.of(trainingRun1));
         assertThrows(EntityConflictException.class, () -> trainingRunService.resumeTrainingRun(trainingRun1.getId()));
     }
 
@@ -521,7 +529,7 @@ public class TrainingRunServiceTest {
     public void resumeTrainingRunTrainingInstanceFinished() {
         trainingRun1.getTrainingInstance().setStartTime(LocalDateTime.now(Clock.systemUTC()).minusHours(2));
         trainingRun1.getTrainingInstance().setEndTime(LocalDateTime.now(Clock.systemUTC()).minusHours(1));
-        given(trainingRunRepository.findByIdWithLevel(any(Long.class))).willReturn(Optional.of(trainingRun1));
+        given(trainingRunRepository.findByIdWithLevelForRead(any(Long.class))).willReturn(Optional.of(trainingRun1));
         assertThrows(EntityConflictException.class, () -> trainingRunService.resumeTrainingRun(trainingRun1.getId()));
     }
 
@@ -529,8 +537,43 @@ public class TrainingRunServiceTest {
     public void resumeTrainingRunDeletedSandbox() {
         trainingRun1.setSandboxInstanceRefId(null);
         trainingRun1.setSandboxInstanceAllocationId(null);
-        given(trainingRunRepository.findByIdWithLevel(any(Long.class))).willReturn(Optional.of(trainingRun1));
+        given(trainingRunRepository.findByIdWithLevelForRead(any(Long.class))).willReturn(Optional.of(trainingRun1));
         assertThrows(EntityConflictException.class, () -> trainingRunService.resumeTrainingRun(trainingRun1.getId()));
+    }
+
+    @Test
+    public void resumeTrainingRunExpiredSandboxDoesNotMarkExpired() {
+        trainingRun1.getTrainingInstance().setLocalEnvironment(false);
+        trainingRun1.setSandboxInstanceRefId("sandbox-id");
+        trainingRun1.setSandboxInstanceAllocationId(7);
+        SandboxLockInfo expiredLock = new SandboxLockInfo();
+        expiredLock.setExpiresAt(OffsetDateTime.now().minusMinutes(1));
+        given(trainingRunRepository.findByIdWithLevelForRead(trainingRun1.getId())).willReturn(Optional.of(trainingRun1));
+        given(sandboxApiService.getSandboxAllocationUnitLock(trainingRun1.getSandboxInstanceAllocationId())).willReturn(expiredLock);
+
+        assertThrows(EntityConflictException.class, () -> trainingRunService.resumeTrainingRun(trainingRun1.getId()));
+
+        assertEquals(TRState.RUNNING, trainingRun1.getState());
+        then(trainingRunRepository).should(never()).findByIdWithLevel(anyLong());
+        then(trainingRunRepository).should(never()).save(any(TrainingRun.class));
+        then(trAcquisitionLockRepository).should(never()).deleteByParticipantRefIdAndTrainingInstanceId(anyLong(), anyLong());
+    }
+
+    @Test
+    public void resumeTrainingRunMissingSandboxLockDoesNotMarkExpired() {
+        trainingRun1.getTrainingInstance().setLocalEnvironment(false);
+        trainingRun1.setSandboxInstanceRefId("sandbox-id");
+        trainingRun1.setSandboxInstanceAllocationId(7);
+        given(trainingRunRepository.findByIdWithLevelForRead(trainingRun1.getId())).willReturn(Optional.of(trainingRun1));
+        given(sandboxApiService.getSandboxAllocationUnitLock(trainingRun1.getSandboxInstanceAllocationId()))
+                .willThrow(new MicroserviceApiException("Error", new CustomWebClientException(HttpStatus.NOT_FOUND, PythonApiError.of("Some error"))));
+
+        assertThrows(EntityConflictException.class, () -> trainingRunService.resumeTrainingRun(trainingRun1.getId()));
+
+        assertEquals(TRState.RUNNING, trainingRun1.getState());
+        then(trainingRunRepository).should(never()).findByIdWithLevel(anyLong());
+        then(trainingRunRepository).should(never()).save(any(TrainingRun.class));
+        then(trAcquisitionLockRepository).should(never()).deleteByParticipantRefIdAndTrainingInstanceId(anyLong(), anyLong());
     }
 
     @Test

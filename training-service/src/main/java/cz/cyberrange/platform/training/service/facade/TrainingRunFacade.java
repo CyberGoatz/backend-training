@@ -14,6 +14,7 @@ import cz.cyberrange.platform.training.api.dto.hint.HintDTO;
 import cz.cyberrange.platform.training.api.dto.run.AccessTrainingRunDTO;
 import cz.cyberrange.platform.training.api.dto.run.AccessedTrainingRunDTO;
 import cz.cyberrange.platform.training.api.dto.run.PublicTrainingCompletionDTO;
+import cz.cyberrange.platform.training.api.dto.run.PublicTrainingSummaryDTO;
 import cz.cyberrange.platform.training.api.dto.run.TrainingRunByIdDTO;
 import cz.cyberrange.platform.training.api.dto.run.TrainingRunDTO;
 import cz.cyberrange.platform.training.api.dto.traininglevel.LevelReferenceSolutionDTO;
@@ -23,7 +24,10 @@ import cz.cyberrange.platform.training.api.enums.LevelType;
 import cz.cyberrange.platform.training.api.enums.QuestionType;
 import cz.cyberrange.platform.training.api.exceptions.EntityConflictException;
 import cz.cyberrange.platform.training.api.exceptions.EntityErrorDetail;
+import cz.cyberrange.platform.training.api.exceptions.MicroserviceApiException;
 import cz.cyberrange.platform.training.api.responses.PageResultResource;
+import cz.cyberrange.platform.training.api.responses.SandboxInfo;
+import cz.cyberrange.platform.training.api.responses.SandboxLockInfo;
 import cz.cyberrange.platform.training.api.responses.VariantAnswer;
 import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
 import cz.cyberrange.platform.training.persistence.model.AccessLevel;
@@ -66,6 +70,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -246,6 +251,39 @@ public class TrainingRunFacade {
     }
 
     /**
+     * Finds public-safe completed Training Runs for a user.
+     *
+     * @param userRefId user ref id.
+     * @param pageable pageable parameter with information about pagination.
+     * @return public-safe completed training summaries page.
+     */
+    @TransactionalRO
+    public PageResultResource<PublicTrainingCompletionDTO> findPublicCompletedTrainingRuns(Long userRefId, Pageable pageable) {
+        Page<TrainingRun> trainingRuns = trainingRunService.findAllFinishedByParticipantRefId(userRefId, pageable);
+        List<PublicTrainingCompletionDTO> completions = trainingRuns.stream()
+                .map(this::toPublicTrainingCompletionDTO)
+                .collect(Collectors.toList());
+        return new PageResultResource<>(completions, trainingRunMapper.createPagination(trainingRuns));
+    }
+
+    /**
+     * Finds public-safe completed Training Run summary for a user.
+     *
+     * @param userRefId user ref id.
+     * @return public-safe completion summary.
+     */
+    @TransactionalRO
+    public PublicTrainingSummaryDTO findPublicCompletedTrainingSummary(Long userRefId) {
+        List<Object[]> summaryRows = trainingRunService.findFinishedSummaryByParticipantRefId(userRefId);
+        Object[] summary = summaryRows.isEmpty() ? new Object[]{0L, 0L, 0D} : summaryRows.get(0);
+        PublicTrainingSummaryDTO summaryDTO = new PublicTrainingSummaryDTO();
+        summaryDTO.setCompletedCount(((Number) summary[0]).longValue());
+        summaryDTO.setTotalScore(((Number) summary[1]).longValue());
+        summaryDTO.setAverageScore(Math.round(((Number) summary[2]).doubleValue()));
+        return summaryDTO;
+    }
+
+    /**
      * Resume given training run.
      *
      * @param trainingRunId id of Training Run to be resumed.
@@ -297,11 +335,12 @@ public class TrainingRunFacade {
         try {
             // During this action we create a new TrainingRun and lock and get sandbox from OpenStack Sandbox API
             TrainingRun trainingRun = trainingRunService.createTrainingRun(trainingInstance, participantRefId);
+            SandboxInfo sandboxInfo = null;
             if (!trainingInstance.isLocalEnvironment()) {
-                trainingRunService.assignSandbox(trainingRun, trainingInstance.getPoolId());
+                sandboxInfo = trainingRunService.assignSandbox(trainingRun, trainingInstance.getPoolId());
             }
             trainingRunService.auditTrainingRunStarted(trainingRun);
-            return convertToAccessTrainingRunDTO(trainingRun);
+            return convertToAccessTrainingRunDTO(trainingRun, sandboxInfo == null ? null : sandboxInfo.getExpiresAt(), sandboxInfo != null);
         } catch (Exception e) {
             // delete/rollback acquisition lock when no training run either sandbox is assigned
             trainingRunService.deleteTrAcquisitionLockToPreventManyRequestsFromSameUser(participantRefId, trainingInstance.getId());
@@ -310,12 +349,20 @@ public class TrainingRunFacade {
     }
 
     private AccessTrainingRunDTO convertToAccessTrainingRunDTO(TrainingRun trainingRun) {
+        return convertToAccessTrainingRunDTO(trainingRun, null, false);
+    }
+
+    private AccessTrainingRunDTO convertToAccessTrainingRunDTO(TrainingRun trainingRun,
+                                                               OffsetDateTime sandboxExpiresAt,
+                                                               boolean sandboxAssignedInCurrentRequest) {
         AccessTrainingRunDTO accessTrainingRunDTO = new AccessTrainingRunDTO();
         accessTrainingRunDTO.setTrainingRunID(trainingRun.getId());
         accessTrainingRunDTO.setAbstractLevelDTO(getAbstractLevelDTO(trainingRun.getCurrentLevel()));
         accessTrainingRunDTO.setShowStepperBar(trainingRun.getTrainingInstance().isShowStepperBar());
         accessTrainingRunDTO.setInfoAboutLevels(getInfoAboutLevels(trainingRun.getCurrentLevel().getTrainingDefinition().getId()));
         accessTrainingRunDTO.setSandboxInstanceRefId(trainingRun.getSandboxInstanceRefId());
+        accessTrainingRunDTO.setSandboxInstanceAllocationId(trainingRun.getSandboxInstanceAllocationId());
+        setSandboxExpiry(accessTrainingRunDTO, trainingRun, sandboxExpiresAt, sandboxAssignedInCurrentRequest);
         accessTrainingRunDTO.setInstanceId(trainingRun.getTrainingInstance().getId());
         accessTrainingRunDTO.setStartTime(trainingRun.getStartTime());
         accessTrainingRunDTO.setLocalEnvironment(trainingRun.getTrainingInstance().isLocalEnvironment());
@@ -332,6 +379,32 @@ public class TrainingRunFacade {
             );
         }
         return accessTrainingRunDTO;
+    }
+
+    private void setSandboxExpiry(AccessTrainingRunDTO accessTrainingRunDTO,
+                                  TrainingRun trainingRun,
+                                  OffsetDateTime sandboxExpiresAt,
+                                  boolean sandboxAssignedInCurrentRequest) {
+        if (sandboxExpiresAt != null) {
+            accessTrainingRunDTO.setSandboxExpiresAt(sandboxExpiresAt);
+            return;
+        }
+        if (sandboxAssignedInCurrentRequest) {
+            return;
+        }
+        Integer allocationUnitId = trainingRun.getSandboxInstanceAllocationId();
+        if (trainingRun.getTrainingInstance().isLocalEnvironment() || allocationUnitId == null) {
+            return;
+        }
+        try {
+            SandboxLockInfo sandboxLockInfo = sandboxApiService.getSandboxAllocationUnitLock(allocationUnitId);
+            if (sandboxLockInfo != null) {
+                accessTrainingRunDTO.setSandboxExpiresAt(sandboxLockInfo.getExpiresAt());
+            }
+        } catch (MicroserviceApiException ex) {
+            LOG.warn("Could not load sandbox lock expiry for training run {} and allocation unit {}.",
+                    trainingRun.getId(), allocationUnitId, ex);
+        }
     }
 
     private List<BasicLevelInfoDTO> getInfoAboutLevels(Long definitionId) {
@@ -690,8 +763,11 @@ public class TrainingRunFacade {
     }
 
     private Actions resolvePossibleActions(AccessedTrainingRunDTO trainingRunDTO, TRState trainingRunState) {
-        boolean isTrainingInstanceRunning = LocalDateTime.now(Clock.systemUTC()).isBefore(trainingRunDTO.getTrainingInstanceEndDate());
-        if (trainingRunState == TRState.FINISHED || !isTrainingInstanceRunning) {
+        boolean isTrainingInstanceRunning = trainingRunDTO.getTrainingInstanceEndDate() == null ||
+                LocalDateTime.now(Clock.systemUTC()).isBefore(trainingRunDTO.getTrainingInstanceEndDate());
+        if (trainingRunState == TRState.EXPIRED) {
+            return Actions.SANDBOX_EXPIRED;
+        } else if (trainingRunState == TRState.FINISHED || !isTrainingInstanceRunning) {
             return Actions.RESULTS;
         } else {
             return Actions.RESUME;

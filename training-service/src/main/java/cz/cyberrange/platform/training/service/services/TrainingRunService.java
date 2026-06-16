@@ -10,6 +10,7 @@ import cz.cyberrange.platform.training.api.exceptions.ForbiddenException;
 import cz.cyberrange.platform.training.api.exceptions.MicroserviceApiException;
 import cz.cyberrange.platform.training.api.exceptions.TooManyRequestsException;
 import cz.cyberrange.platform.training.api.responses.SandboxInfo;
+import cz.cyberrange.platform.training.api.responses.SandboxLockInfo;
 import cz.cyberrange.platform.training.persistence.model.*;
 import cz.cyberrange.platform.training.persistence.model.enums.AssessmentType;
 import cz.cyberrange.platform.training.persistence.model.enums.QuestionType;
@@ -39,6 +40,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -46,6 +48,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -147,6 +151,18 @@ public class TrainingRunService {
     }
 
     /**
+     * Finds specific Training Run by id including current level without acquiring a write lock.
+     *
+     * @param runId of a Training Run with level that would be returned
+     * @return specific {@link TrainingRun} by id
+     * @throws EntityNotFoundException training run is not found.
+     */
+    public TrainingRun findByIdWithLevelForRead(Long runId) {
+        return trainingRunRepository.findByIdWithLevelForRead(runId).orElseThrow(() -> new EntityNotFoundException(
+                new EntityErrorDetail(TrainingRun.class, "id", runId.getClass(), runId)));
+    }
+
+    /**
      * Find all Training Runs.
      *
      * @param predicate specifies query to the database.
@@ -225,6 +241,27 @@ public class TrainingRunService {
     }
 
     /**
+     * Finds finished Training Runs for a user ref id.
+     *
+     * @param userRefId user ref id.
+     * @param pageable pageable parameter with information about pagination.
+     * @return page of finished {@link TrainingRun}s of the user.
+     */
+    public Page<TrainingRun> findAllFinishedByParticipantRefId(Long userRefId, Pageable pageable) {
+        return trainingRunRepository.findAllFinishedByParticipantRefId(userRefId, pageable);
+    }
+
+    /**
+     * Finds public completion summary for a user ref id.
+     *
+     * @param userRefId user ref id.
+     * @return completed count, total score and average score.
+     */
+    public List<Object[]> findFinishedSummaryByParticipantRefId(Long userRefId) {
+        return trainingRunRepository.findFinishedSummaryByParticipantRefId(userRefId);
+    }
+
+    /**
      * Finds all Training Runs of particular training instance.
      *
      * @param trainingInstanceId the training instance id
@@ -243,6 +280,8 @@ public class TrainingRunService {
      */
     public TrainingRun moveToNextLevel(Long runId) {
         TrainingRun trainingRun = findByIdWithLevel(runId);
+        assertSandboxSessionActive(trainingRun);
+        assertTrainingRunMutable(trainingRun);
         int currentLevelOrder = trainingRun.getCurrentLevel().getOrder();
         int maxLevelOrder = abstractLevelRepository.getCurrentMaxOrder(trainingRun.getCurrentLevel().getTrainingDefinition().getId());
         if (!trainingRun.isLevelAnswered()) {
@@ -434,11 +473,21 @@ public class TrainingRunService {
      * @throws ForbiddenException       no available sandbox.
      * @throws MicroserviceApiException error calling OpenStack Sandbox Service API
      */
-    public TrainingRun assignSandbox(TrainingRun trainingRun, long poolId) {
-        SandboxInfo info = sandboxApiService.getAndLockSandbox(poolId, trainingRun.getTrainingInstance().getAccessToken());
+    public SandboxInfo assignSandbox(TrainingRun trainingRun, long poolId) {
+        SandboxInfo info = sandboxApiService.getAndLockSandbox(
+                poolId,
+                trainingRun.getTrainingInstance().getAccessToken(),
+                resolveSandboxDurationMinutes(trainingRun)
+        );
         trainingRun.setSandboxInstanceRefId(info.getId());
         trainingRun.setSandboxInstanceAllocationId(info.getAllocationUnitId());
-        return trainingRunRepository.save(trainingRun);
+        trainingRunRepository.save(trainingRun);
+        return info;
+    }
+
+    private long resolveSandboxDurationMinutes(TrainingRun trainingRun) {
+        Integer sandboxDurationMinutes = trainingRun.getTrainingInstance().getSandboxDurationMinutes();
+        return sandboxDurationMinutes == null ? 60L : sandboxDurationMinutes.longValue();
     }
 
     /**
@@ -449,12 +498,15 @@ public class TrainingRunService {
      * @throws EntityNotFoundException training run is not found.
      */
     public TrainingRun resumeTrainingRun(Long trainingRunId) {
-        TrainingRun trainingRun = findByIdWithLevel(trainingRunId);
+        TrainingRun trainingRun = findByIdWithLevelForRead(trainingRunId);
         TrainingInstance trainingInstance = trainingRun.getTrainingInstance();
-        if (trainingRun.getState().equals(TRState.FINISHED) || trainingRun.getState().equals(TRState.ARCHIVED)) {
+        if (trainingRun.getState().equals(TRState.FINISHED) ||
+                trainingRun.getState().equals(TRState.ARCHIVED) ||
+                trainingRun.getState().equals(TRState.EXPIRED)) {
             throw new EntityConflictException(new EntityErrorDetail(TrainingRun.class, "id", trainingRunId.getClass(), trainingRunId,
-                    "Cannot resume finished training run."));
+                    "Cannot resume finished or expired training run."));
         }
+        assertSandboxSessionActiveForResume(trainingRun);
         if (trainingInstance.getEndTime() != null &&
                 trainingInstance.getEndTime().isBefore(LocalDateTime.now(Clock.systemUTC()))) {
             throw new EntityConflictException(new EntityErrorDetail(TrainingRun.class, "id", trainingRunId.getClass(), trainingRunId,
@@ -484,6 +536,8 @@ public class TrainingRunService {
      */
     public boolean isCorrectAnswer(Long runId, String answer) {
         TrainingRun trainingRun = findByIdWithLevel(runId);
+        assertSandboxSessionActive(trainingRun);
+        assertTrainingRunMutable(trainingRun);
         AbstractLevel level = trainingRun.getCurrentLevel();
         if (level.getClass() != TrainingLevel.class) {
             throw new BadRequestException("Current level is not training level and does not have answer.");
@@ -525,6 +579,8 @@ public class TrainingRunService {
      */
     public boolean isCorrectPassKey(Long runId, String passkey) {
         TrainingRun trainingRun = findByIdWithLevel(runId);
+        assertSandboxSessionActive(trainingRun);
+        assertTrainingRunMutable(trainingRun);
         AbstractLevel level = trainingRun.getCurrentLevel();
         if (level.getClass() != AccessLevel.class) {
             throw new BadRequestException("Current level is not access level and does not have passkey.");
@@ -628,6 +684,8 @@ public class TrainingRunService {
      */
     public String getSolution(Long trainingRunId) {
         TrainingRun trainingRun = findByIdWithLevel(trainingRunId);
+        assertSandboxSessionActive(trainingRun);
+        assertTrainingRunMutable(trainingRun);
         AbstractLevel level = trainingRun.getCurrentLevel();
         if (level instanceof TrainingLevel trainingLevel) {
             if (!trainingRun.isSolutionTaken()) {
@@ -682,6 +740,8 @@ public class TrainingRunService {
      */
     public Hint getHint(Long trainingRunId, Long hintId) {
         TrainingRun trainingRun = findByIdWithLevel(trainingRunId);
+        assertSandboxSessionActive(trainingRun);
+        assertTrainingRunMutable(trainingRun);
         AbstractLevel level = trainingRun.getCurrentLevel();
         if (level instanceof TrainingLevel) {
             Hint hint = hintRepository.findById(hintId)
@@ -719,6 +779,8 @@ public class TrainingRunService {
      */
     public TrainingRun finishTrainingRun(Long trainingRunId) {
         TrainingRun trainingRun = findByIdWithLevel(trainingRunId);
+        assertSandboxSessionActive(trainingRun);
+        assertTrainingRunMutable(trainingRun);
         int maxOrder = abstractLevelRepository.getCurrentMaxOrder(trainingRun.getCurrentLevel().getTrainingDefinition().getId());
         if (trainingRun.getCurrentLevel().getOrder() != maxOrder) {
             throw new EntityConflictException(new EntityErrorDetail(TrainingRun.class, "id", trainingRunId.getClass(), trainingRunId,
@@ -752,6 +814,128 @@ public class TrainingRunService {
         trainingRun.setSandboxInstanceAllocationId(null);
         trAcquisitionLockRepository.deleteByParticipantRefIdAndTrainingInstanceId(trainingRun.getParticipantRef().getUserRefId(), trainingRun.getTrainingInstance().getId());
         trainingRunRepository.save(trainingRun);
+    }
+
+    /**
+     * Expire a running training run because its sandbox session ended.
+     *
+     * @param trainingRun training run to expire
+     * @return expired training run
+     */
+    @TransactionalWO
+    public TrainingRun expireTrainingRunSandbox(TrainingRun trainingRun) {
+        TrainingRun currentTrainingRun = findByIdWithLevel(trainingRun.getId());
+        return expireLoadedRunningTrainingRun(currentTrainingRun);
+    }
+
+    private TrainingRun expireLoadedRunningTrainingRun(TrainingRun trainingRun) {
+        if (!trainingRun.getState().equals(TRState.RUNNING)) {
+            return trainingRun;
+        }
+        trainingRun.setState(TRState.EXPIRED);
+        trainingRun.setEndTime(LocalDateTime.now(Clock.systemUTC()));
+        trainingRun.setPreviousSandboxInstanceRefId(trainingRun.getSandboxInstanceRefId());
+        trAcquisitionLockRepository.deleteByParticipantRefIdAndTrainingInstanceId(
+                trainingRun.getParticipantRef().getUserRefId(),
+                trainingRun.getTrainingInstance().getId());
+        return trainingRunRepository.save(trainingRun);
+    }
+
+    /**
+     * Clear sandbox references after a run's sandbox has been cleaned up.
+     *
+     * @param trainingRun training run
+     * @return updated training run
+     */
+    @TransactionalWO
+    public TrainingRun clearTrainingRunSandbox(TrainingRun trainingRun) {
+        TrainingRun currentTrainingRun = findByIdWithLevel(trainingRun.getId());
+        if (currentTrainingRun.getSandboxInstanceRefId() != null) {
+            currentTrainingRun.setPreviousSandboxInstanceRefId(currentTrainingRun.getSandboxInstanceRefId());
+        }
+        currentTrainingRun.setSandboxInstanceRefId(null);
+        currentTrainingRun.setSandboxInstanceAllocationId(null);
+        return trainingRunRepository.save(currentTrainingRun);
+    }
+
+    private void assertSandboxSessionActive(TrainingRun trainingRun) {
+        if (trainingRun.getState().equals(TRState.EXPIRED)) {
+            throwSandboxExpired(trainingRun.getId());
+        }
+        if (trainingRun.getTrainingInstance().isLocalEnvironment()
+                || !trainingRun.getState().equals(TRState.RUNNING)
+                || trainingRun.getSandboxInstanceAllocationId() == null) {
+            return;
+        }
+        SandboxLockInfo lock;
+        try {
+            lock = sandboxApiService.getSandboxAllocationUnitLock(trainingRun.getSandboxInstanceAllocationId());
+        } catch (MicroserviceApiException ex) {
+            if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
+                throwSandboxExpiredPendingScheduler(trainingRun.getId());
+            }
+            throw ex;
+        }
+        if (lock != null && (lock.getExpiresAt() == null || lock.getExpiresAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC)))) {
+            return;
+        }
+        throwSandboxExpiredPendingScheduler(trainingRun.getId());
+    }
+
+    private void assertSandboxSessionActiveForResume(TrainingRun trainingRun) {
+        if (trainingRun.getState().equals(TRState.EXPIRED)) {
+            throwSandboxExpiredPendingScheduler(trainingRun.getId());
+        }
+        if (trainingRun.getTrainingInstance().isLocalEnvironment()
+                || !trainingRun.getState().equals(TRState.RUNNING)
+                || trainingRun.getSandboxInstanceAllocationId() == null) {
+            return;
+        }
+        SandboxLockInfo lock;
+        try {
+            lock = sandboxApiService.getSandboxAllocationUnitLock(trainingRun.getSandboxInstanceAllocationId());
+        } catch (MicroserviceApiException ex) {
+            if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
+                throwSandboxExpiredPendingScheduler(trainingRun.getId());
+            }
+            throw ex;
+        }
+        if (lock != null && (lock.getExpiresAt() == null || lock.getExpiresAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC)))) {
+            return;
+        }
+        throwSandboxExpiredPendingScheduler(trainingRun.getId());
+    }
+
+    private void assertTrainingRunMutable(TrainingRun trainingRun) {
+        if (trainingRun.getState().equals(TRState.EXPIRED)) {
+            throwSandboxExpired(trainingRun.getId());
+        }
+        if (!trainingRun.getState().equals(TRState.RUNNING)) {
+            throw new EntityConflictException(new EntityErrorDetail(TrainingRun.class, "id", Long.class, trainingRun.getId(),
+                    "Cannot update training run because it is not running."));
+        }
+    }
+
+    private void throwSandboxExpired(Long trainingRunId) {
+        throw new EntityConflictException(new EntityErrorDetail(TrainingRun.class, "id", Long.class, trainingRunId,
+                "Sandbox session has expired. Start a new training run."));
+    }
+
+    private void throwSandboxExpiredPendingScheduler(Long trainingRunId) {
+        throw new EntityConflictException(new EntityErrorDetail(TrainingRun.class, "id", Long.class, trainingRunId,
+                "Sandbox session has expired. Please wait for cleanup to finish, then start a new training run."));
+    }
+
+    public List<TrainingRun> findRunningCloudTrainingRunsWithSandboxAllocation() {
+        return trainingRunRepository.findRunningCloudTrainingRunsWithSandboxAllocation();
+    }
+
+    public List<TrainingRun> findExpiredCloudTrainingRunsWithSandboxAllocation() {
+        return trainingRunRepository.findExpiredCloudTrainingRunsWithSandboxAllocation();
+    }
+
+    public List<TrainingRun> findFinishedCloudTrainingRunsWithSandboxAllocation() {
+        return trainingRunRepository.findFinishedCloudTrainingRunsWithSandboxAllocation();
     }
 
     /**
@@ -793,6 +977,8 @@ public class TrainingRunService {
      */
     public void evaluateResponsesToAssessment(Long trainingRunId, Map<Long, QuestionAnswerDTO> answersToQuestions) {
         TrainingRun trainingRun = findByIdWithLevel(trainingRunId);
+        assertSandboxSessionActive(trainingRun);
+        assertTrainingRunMutable(trainingRun);
         if (!(trainingRun.getCurrentLevel() instanceof AssessmentLevel)) {
             throw new BadRequestException("Current level is not assessment level and cannot be evaluated.");
         }

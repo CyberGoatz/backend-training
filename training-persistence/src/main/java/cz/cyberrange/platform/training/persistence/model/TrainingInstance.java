@@ -107,6 +107,8 @@ public class TrainingInstance extends AbstractEntity<Long> {
     private boolean localEnvironment;
     @Column(name = "sandbox_definition_id")
     private Long sandboxDefinitionId;
+    @Column(name = "sandbox_duration_minutes", nullable = false)
+    private Integer sandboxDurationMinutes = 60;
     @Column(name = "show_stepper_bar", nullable = false)
     private boolean showStepperBar;
     @Column(name = "backward_mode", nullable = false)
@@ -348,6 +350,24 @@ public class TrainingInstance extends AbstractEntity<Long> {
     }
 
     /**
+     * Gets sandbox session duration in minutes.
+     *
+     * @return sandbox session duration in minutes
+     */
+    public Integer getSandboxDurationMinutes() {
+        return sandboxDurationMinutes;
+    }
+
+    /**
+     * Sets sandbox session duration in minutes.
+     *
+     * @param sandboxDurationMinutes sandbox session duration in minutes
+     */
+    public void setSandboxDurationMinutes(Integer sandboxDurationMinutes) {
+        this.sandboxDurationMinutes = sandboxDurationMinutes;
+    }
+
+    /**
      * Gets if stepper bar is shown while in run.
      *
      * @return true if bar is shown
@@ -427,6 +447,7 @@ public class TrainingInstance extends AbstractEntity<Long> {
                 ", localEnvironment='" + localEnvironment + '\'' +
                 ", accessToken='" + accessToken + '\'' +
                 ", sandboxDefinitionId='" + sandboxDefinitionId + '\'' +
+                ", sandboxDurationMinutes=" + sandboxDurationMinutes +
                 ", showStepperBar=" + showStepperBar +
                 ", backwardMode='" + backwardMode + '\'' +
                 '}';

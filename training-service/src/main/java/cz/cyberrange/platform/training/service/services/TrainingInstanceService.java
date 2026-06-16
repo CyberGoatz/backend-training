@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 public class TrainingInstanceService {
 
     private static final Logger LOG = LoggerFactory.getLogger(TrainingInstanceService.class);
+    private static final int DEFAULT_SANDBOX_DURATION_MINUTES = 60;
 
     private TrainingInstanceRepository trainingInstanceRepository;
     private TrainingRunRepository trainingRunRepository;
@@ -139,6 +140,7 @@ public class TrainingInstanceService {
      */
     public TrainingInstance create(TrainingInstance trainingInstance) {
         trainingInstance.setAccessToken(generateAccessToken(trainingInstance.getAccessToken().trim()));
+        setDefaultSandboxDuration(trainingInstance);
         validateStartAndEndTime(trainingInstance);
         addLoggedInUserAsOrganizerToTrainingInstance(trainingInstance);
         return auditAndSave(trainingInstance);
@@ -153,6 +155,7 @@ public class TrainingInstanceService {
      * @throws EntityConflictException cannot be updated for some reason.
      */
     public String update(TrainingInstance trainingInstanceToUpdate) {
+        setDefaultSandboxDuration(trainingInstanceToUpdate);
         validateStartAndEndTime(trainingInstanceToUpdate);
         TrainingInstance trainingInstance = findById(trainingInstanceToUpdate.getId());
         checkNotRevivingAnExpiredInstance(trainingInstanceToUpdate, trainingInstance);
@@ -182,6 +185,12 @@ public class TrainingInstanceService {
         }
     }
 
+    private void setDefaultSandboxDuration(TrainingInstance trainingInstance) {
+        if (trainingInstance.getSandboxDurationMinutes() == null) {
+            trainingInstance.setSandboxDurationMinutes(DEFAULT_SANDBOX_DURATION_MINUTES);
+        }
+    }
+
     private void checkNotRevivingAnExpiredInstance(TrainingInstance trainingInstanceToUpdate, TrainingInstance currentTrainingInstance) {
         if (currentTrainingInstance.finished() && !trainingInstanceToUpdate.finished()) {
             throw new EntityConflictException(new EntityErrorDetail(TrainingInstance.class, "id",
@@ -200,6 +209,9 @@ public class TrainingInstanceService {
         } else if (!Objects.equals(currentTrainingInstance.getPoolId(), trainingInstanceToUpdate.getPoolId())) {
             throw new EntityConflictException(new EntityErrorDetail(TrainingInstance.class, "id", Long.class, currentTrainingInstance.getId(),
                     "The pool in the running or finished instance cannot be changed. Only title and end time can be updated."));
+        } else if (!Objects.equals(currentTrainingInstance.getSandboxDurationMinutes(), trainingInstanceToUpdate.getSandboxDurationMinutes())) {
+            throw new EntityConflictException(new EntityErrorDetail(TrainingInstance.class, "id", Long.class, currentTrainingInstance.getId(),
+                    "The sandbox duration in the running or finished instance cannot be changed. Only title and end time can be updated."));
         }
     }
 

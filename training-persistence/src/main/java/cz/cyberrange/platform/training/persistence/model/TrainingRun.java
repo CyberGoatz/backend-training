@@ -36,7 +36,7 @@ import java.util.Set;
                         "JOIN FETCH tr.trainingInstance ti " +
                         "JOIN FETCH tr.participantRef pr " +
                         "JOIN FETCH tr.currentLevel cl " +
-                        "WHERE ti.accessToken = :accessToken AND pr.userRefId = :userRefId AND tr.sandboxInstanceRefId IS NOT NULL AND tr.state NOT LIKE 'FINISHED'"
+                        "WHERE ti.accessToken = :accessToken AND pr.userRefId = :userRefId AND tr.sandboxInstanceRefId IS NOT NULL AND tr.state = 'RUNNING'"
         ),
         @NamedQuery(
                 name = "TrainingRun.findByIdWithLevel",
@@ -46,6 +46,14 @@ import java.util.Set;
                         "JOIN FETCH ti.trainingDefinition " +
                         "WHERE tr.id= :trainingRunId",
                 lockMode = LockModeType.PESSIMISTIC_WRITE
+        ),
+        @NamedQuery(
+                name = "TrainingRun.findByIdWithLevelForRead",
+                query = "SELECT tr FROM TrainingRun tr " +
+                        "JOIN FETCH tr.currentLevel " +
+                        "JOIN FETCH tr.trainingInstance ti " +
+                        "JOIN FETCH ti.trainingDefinition " +
+                        "WHERE tr.id= :trainingRunId"
         ),
         @NamedQuery(
                 name = "TrainingRun.deleteTrainingRunsByTrainingInstance",
@@ -75,7 +83,7 @@ import java.util.Set;
                 name = "TrainingRun.findAllActiveByTrainingInstanceId",
                 query = "SELECT tr FROM TrainingRun tr " +
                         "INNER JOIN tr.trainingInstance ti " +
-                        "WHERE ti.id = :trainingInstanceId AND tr.state <> 'ARCHIVED'"
+                        "WHERE ti.id = :trainingInstanceId AND tr.state <> 'ARCHIVED' AND tr.state <> 'EXPIRED'"
         ),
         @NamedQuery(
                 name = "TrainingRun.findAllInactiveByTrainingInstanceId",

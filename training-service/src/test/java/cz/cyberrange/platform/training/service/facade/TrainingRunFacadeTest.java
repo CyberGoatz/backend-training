@@ -5,7 +5,10 @@ import com.querydsl.core.types.dsl.PathBuilder;
 import cz.cyberrange.platform.training.api.dto.CorrectAnswerDTO;
 import cz.cyberrange.platform.training.api.dto.IsCorrectAnswerDTO;
 import cz.cyberrange.platform.training.api.dto.UserRefDTO;
+import cz.cyberrange.platform.training.api.dto.run.AccessedTrainingRunDTO;
+import cz.cyberrange.platform.training.api.enums.Actions;
 import cz.cyberrange.platform.training.api.exceptions.EntityConflictException;
+import cz.cyberrange.platform.training.api.responses.PageResultResource;
 import cz.cyberrange.platform.training.api.responses.SandboxAnswersInfo;
 import cz.cyberrange.platform.training.api.responses.VariantAnswer;
 import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
@@ -17,6 +20,7 @@ import cz.cyberrange.platform.training.persistence.model.TrainingInstance;
 import cz.cyberrange.platform.training.persistence.model.TrainingLevel;
 import cz.cyberrange.platform.training.persistence.model.TrainingRun;
 import cz.cyberrange.platform.training.persistence.model.UserRef;
+import cz.cyberrange.platform.training.persistence.model.enums.TRState;
 import cz.cyberrange.platform.training.persistence.util.TestDataFactory;
 import cz.cyberrange.platform.training.service.mapping.mapstruct.*;
 import cz.cyberrange.platform.training.service.services.SecurityService;
@@ -163,6 +167,25 @@ public class TrainingRunFacadeTest {
         Predicate predicate = tR.isNotNull();
 
         given(trainingRunService.findAll(any(Predicate.class), any(Pageable.class))).willReturn(p);
+    }
+
+    @Test
+    public void findAllAccessedTrainingRunsWithOpenEndedInstance() {
+        trainingInstance.setEndTime(null);
+        trainingRun1.setTrainingInstance(trainingInstance);
+        trainingRun1.setState(TRState.RUNNING);
+        Page<TrainingRun> page = new PageImpl<>(List.of(trainingRun1));
+        PathBuilder<TrainingRun> tR = new PathBuilder<>(TrainingRun.class, "trainingRun");
+        Predicate predicate = tR.isNotNull();
+
+        given(trainingRunService.findAllByParticipantRefUserRefId(any(Predicate.class), any(Pageable.class))).willReturn(page);
+        given(trainingRunService.getMaxLevelOrder(trainingDefinition.getId())).willReturn(2);
+
+        PageResultResource<AccessedTrainingRunDTO> result = trainingRunFacade.findAllAccessedTrainingRuns(predicate, Pageable.unpaged(), null);
+
+        assertEquals(1, result.getContent().size());
+        assertNull(result.getContent().get(0).getTrainingInstanceEndDate());
+        assertEquals(Actions.RESUME, result.getContent().get(0).getPossibleAction());
     }
 
     @Test

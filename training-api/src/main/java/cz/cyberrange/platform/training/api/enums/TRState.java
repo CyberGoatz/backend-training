@@ -17,5 +17,9 @@ public enum TRState {
     /**
      * Archived Training Run state.
      */
-    ARCHIVED;
+    ARCHIVED,
+    /**
+     * Expired Training Run state.
+     */
+    EXPIRED;
 }

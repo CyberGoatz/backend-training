@@ -120,12 +120,51 @@ public interface TrainingRunRepository extends JpaRepository<TrainingRun, Long>,
     List<TrainingRun> findAllFinishedByParticipantRefId(@Param("userRefId") Long userRefId);
 
     /**
+     * Find public-safe finished training runs accessed by participant by their user ref id.
+     *
+     * @param userRefId the participant ref id
+     * @param pageable pageable parameter with information about pagination
+     * @return the page of finished {@link TrainingRun}s accessed by participant
+     */
+    @Query(value = "SELECT tr FROM TrainingRun tr " +
+            "JOIN FETCH tr.participantRef pr " +
+            "JOIN FETCH tr.trainingInstance ti " +
+            "JOIN FETCH ti.trainingDefinition td " +
+            "WHERE pr.userRefId = :userRefId AND tr.state = 'FINISHED'",
+            countQuery = "SELECT COUNT(tr) FROM TrainingRun tr " +
+                    "JOIN tr.participantRef pr " +
+                    "WHERE pr.userRefId = :userRefId AND tr.state = 'FINISHED'")
+    Page<TrainingRun> findAllFinishedByParticipantRefId(@Param("userRefId") Long userRefId, Pageable pageable);
+
+    /**
+     * Find public-safe finished training run summary for participant by their user ref id.
+     *
+     * @param userRefId the participant ref id
+     * @return completed count, total score and average score
+     */
+    @Query("SELECT COUNT(tr), " +
+            "COALESCE(SUM(tr.totalTrainingScore + tr.totalAssessmentScore), 0), " +
+            "COALESCE(AVG(tr.totalTrainingScore + tr.totalAssessmentScore), 0) " +
+            "FROM TrainingRun tr " +
+            "JOIN tr.participantRef pr " +
+            "WHERE pr.userRefId = :userRefId AND tr.state = 'FINISHED'")
+    List<Object[]> findFinishedSummaryByParticipantRefId(@Param("userRefId") Long userRefId);
+
+    /**
      * Find training run by id including current level
      *
      * @param trainingRunId the training run id
      * @return {@link TrainingRun} including {@link cz.cyberrange.platform.training.persistence.model.AbstractLevel}
      */
     Optional<TrainingRun> findByIdWithLevel(@Param("trainingRunId") Long trainingRunId);
+
+    /**
+     * Find training run by id including current level without acquiring a write lock.
+     *
+     * @param trainingRunId the training run id
+     * @return {@link TrainingRun} including {@link cz.cyberrange.platform.training.persistence.model.AbstractLevel}
+     */
+    Optional<TrainingRun> findByIdWithLevelForRead(@Param("trainingRunId") Long trainingRunId);
 
     /**
      * Find all training runs by id of associated training definition that are accessible to participant by user ref id.
@@ -178,6 +217,42 @@ public interface TrainingRunRepository extends JpaRepository<TrainingRun, Long>,
      */
     Page<TrainingRun> findAllByTrainingDefinitionId(@Param("trainingDefinitionId") Long trainingDefinitionId,
                                                     Pageable pageable);
+
+    /**
+     * Find all running training runs assigned to a sandbox allocation unit.
+     *
+     * @return running {@link TrainingRun}s with sandbox allocation unit ids.
+     */
+    @Query("SELECT tr FROM TrainingRun tr " +
+            "JOIN FETCH tr.trainingInstance ti " +
+            "JOIN FETCH ti.trainingDefinition td " +
+            "JOIN FETCH tr.participantRef pr " +
+            "WHERE tr.state = 'RUNNING' AND tr.sandboxInstanceAllocationId IS NOT NULL")
+    List<TrainingRun> findRunningCloudTrainingRunsWithSandboxAllocation();
+
+    /**
+     * Find all expired training runs still assigned to a sandbox allocation unit.
+     *
+     * @return expired {@link TrainingRun}s with sandbox allocation unit ids.
+     */
+    @Query("SELECT tr FROM TrainingRun tr " +
+            "JOIN FETCH tr.trainingInstance ti " +
+            "JOIN FETCH ti.trainingDefinition td " +
+            "JOIN FETCH tr.participantRef pr " +
+            "WHERE tr.state = 'EXPIRED' AND tr.sandboxInstanceAllocationId IS NOT NULL")
+    List<TrainingRun> findExpiredCloudTrainingRunsWithSandboxAllocation();
+
+    /**
+     * Find all finished training runs still assigned to a sandbox allocation unit.
+     *
+     * @return finished {@link TrainingRun}s with sandbox allocation unit ids.
+     */
+    @Query("SELECT tr FROM TrainingRun tr " +
+            "JOIN FETCH tr.trainingInstance ti " +
+            "JOIN FETCH ti.trainingDefinition td " +
+            "JOIN FETCH tr.participantRef pr " +
+            "WHERE tr.state = 'FINISHED' AND tr.sandboxInstanceAllocationId IS NOT NULL")
+    List<TrainingRun> findFinishedCloudTrainingRunsWithSandboxAllocation();
 
     /**
      * Delete all training runs by training instance.

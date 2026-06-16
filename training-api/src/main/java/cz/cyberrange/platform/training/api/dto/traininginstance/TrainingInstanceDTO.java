@@ -52,6 +52,8 @@ public class TrainingInstanceDTO {
     private boolean localEnvironment;
     @ApiModelProperty(value = "Id of sandbox definition assigned to training instance", example = "1")
     private Long sandboxDefinitionId;
+    @ApiModelProperty(value = "Sandbox session duration in minutes.", example = "120")
+    private Integer sandboxDurationMinutes;
     @ApiModelProperty(value = "Sign if stepper bar should be displayed.", required = true, example = "true")
     private boolean showStepperBar;
     @ApiModelProperty(value = "Indicates if trainee can during training run move to the previous already solved levels.", example = "true")
