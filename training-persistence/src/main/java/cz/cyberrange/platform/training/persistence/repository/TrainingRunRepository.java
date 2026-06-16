@@ -159,6 +159,14 @@ public interface TrainingRunRepository extends JpaRepository<TrainingRun, Long>,
     Optional<TrainingRun> findByIdWithLevel(@Param("trainingRunId") Long trainingRunId);
 
     /**
+     * Find training run by id including current level without acquiring a write lock.
+     *
+     * @param trainingRunId the training run id
+     * @return {@link TrainingRun} including {@link cz.cyberrange.platform.training.persistence.model.AbstractLevel}
+     */
+    Optional<TrainingRun> findByIdWithLevelForRead(@Param("trainingRunId") Long trainingRunId);
+
+    /**
      * Find all training runs by id of associated training definition that are accessible to participant by user ref id.
      *
      * @param trainingDefinitionId the training definition id

@@ -48,6 +48,14 @@ import java.util.Set;
                 lockMode = LockModeType.PESSIMISTIC_WRITE
         ),
         @NamedQuery(
+                name = "TrainingRun.findByIdWithLevelForRead",
+                query = "SELECT tr FROM TrainingRun tr " +
+                        "JOIN FETCH tr.currentLevel " +
+                        "JOIN FETCH tr.trainingInstance ti " +
+                        "JOIN FETCH ti.trainingDefinition " +
+                        "WHERE tr.id= :trainingRunId"
+        ),
+        @NamedQuery(
                 name = "TrainingRun.deleteTrainingRunsByTrainingInstance",
                 query = "DELETE FROM TrainingRun tr WHERE tr.trainingInstance.id = :trainingInstanceId"
         ),

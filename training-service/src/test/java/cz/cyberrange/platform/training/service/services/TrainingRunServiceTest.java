@@ -14,6 +14,7 @@ import cz.cyberrange.platform.training.api.exceptions.TooManyRequestsException;
 import cz.cyberrange.platform.training.api.exceptions.errors.JavaApiError;
 import cz.cyberrange.platform.training.api.exceptions.errors.PythonApiError;
 import cz.cyberrange.platform.training.api.responses.SandboxInfo;
+import cz.cyberrange.platform.training.api.responses.SandboxLockInfo;
 import cz.cyberrange.platform.training.persistence.model.*;
 import cz.cyberrange.platform.training.persistence.model.enums.TRState;
 import cz.cyberrange.platform.training.persistence.repository.AbstractLevelRepository;
@@ -36,7 +37,6 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -50,6 +50,7 @@ import reactor.core.publisher.Mono;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -97,8 +98,6 @@ public class TrainingRunServiceTest {
     private SecurityService securityService;
     @MockBean
     private AnswersStorageApiService answersStorageApiService;
-    @MockBean
-    private PlatformTransactionManager transactionManager;
 
     private TrainingRun trainingRun1, trainingRun2;
     private TrainingLevel trainingLevel, trainingLevel2;
@@ -116,7 +115,7 @@ public class TrainingRunServiceTest {
         trainingRunService = new TrainingRunService(trainingRunRepository, abstractLevelRepository, trainingInstanceRepository,
                 participantRefRepository, hintRepository, auditEventService, elasticsearchApiService, answersStorageApiService,
                 securityService, questionAnswerRepository, sandboxApiService, trAcquisitionLockRepository, submissionRepository,
-                trainingLevelResultRepository, transactionManager);
+                trainingLevelResultRepository);
         given(trainingLevelResultRepository.findByTrainingRunIdAndLevelId(anyLong(), anyLong()))
                 .willReturn(Optional.empty());
 
@@ -498,25 +497,26 @@ public class TrainingRunServiceTest {
 
     @Test
     public void resumeTrainingRun() {
-        given(trainingRunRepository.findByIdWithLevel(any(Long.class))).willReturn(Optional.of(trainingRun1));
+        given(trainingRunRepository.findByIdWithLevelForRead(any(Long.class))).willReturn(Optional.of(trainingRun1));
         TrainingRun trainingRun = trainingRunService.resumeTrainingRun(trainingRun1.getId());
 
         assertEquals(trainingRun.getId(), trainingRun1.getId());
         assertTrue(trainingRun.getCurrentLevel() instanceof TrainingLevel);
+        then(trainingRunRepository).should(never()).findByIdWithLevel(anyLong());
     }
 
     @Test
     public void resumeTrainingRunWithNotFound() {
         trainingRun1.setSandboxInstanceRefId(null);
         trainingRun1.setSandboxInstanceAllocationId(null);
-        given(trainingRunRepository.findByIdWithLevel(any(Long.class))).willReturn(Optional.empty());
+        given(trainingRunRepository.findByIdWithLevelForRead(any(Long.class))).willReturn(Optional.empty());
         assertThrows(EntityNotFoundException.class, () -> trainingRunService.resumeTrainingRun(trainingRun1.getId()));
     }
 
     @Test
     public void resumeTrainingRunFinished() {
         trainingRun1.setState(TRState.FINISHED);
-        given(trainingRunRepository.findByIdWithLevel(any(Long.class))).willReturn(Optional.of(trainingRun1));
+        given(trainingRunRepository.findByIdWithLevelForRead(any(Long.class))).willReturn(Optional.of(trainingRun1));
         assertThrows(EntityConflictException.class, () -> trainingRunService.resumeTrainingRun(trainingRun1.getId()));
     }
 
@@ -524,7 +524,7 @@ public class TrainingRunServiceTest {
     public void resumeTrainingRunTrainingInstanceFinished() {
         trainingRun1.getTrainingInstance().setStartTime(LocalDateTime.now(Clock.systemUTC()).minusHours(2));
         trainingRun1.getTrainingInstance().setEndTime(LocalDateTime.now(Clock.systemUTC()).minusHours(1));
-        given(trainingRunRepository.findByIdWithLevel(any(Long.class))).willReturn(Optional.of(trainingRun1));
+        given(trainingRunRepository.findByIdWithLevelForRead(any(Long.class))).willReturn(Optional.of(trainingRun1));
         assertThrows(EntityConflictException.class, () -> trainingRunService.resumeTrainingRun(trainingRun1.getId()));
     }
 
@@ -532,8 +532,43 @@ public class TrainingRunServiceTest {
     public void resumeTrainingRunDeletedSandbox() {
         trainingRun1.setSandboxInstanceRefId(null);
         trainingRun1.setSandboxInstanceAllocationId(null);
-        given(trainingRunRepository.findByIdWithLevel(any(Long.class))).willReturn(Optional.of(trainingRun1));
+        given(trainingRunRepository.findByIdWithLevelForRead(any(Long.class))).willReturn(Optional.of(trainingRun1));
         assertThrows(EntityConflictException.class, () -> trainingRunService.resumeTrainingRun(trainingRun1.getId()));
+    }
+
+    @Test
+    public void resumeTrainingRunExpiredSandboxDoesNotMarkExpired() {
+        trainingRun1.getTrainingInstance().setLocalEnvironment(false);
+        trainingRun1.setSandboxInstanceRefId("sandbox-id");
+        trainingRun1.setSandboxInstanceAllocationId(7);
+        SandboxLockInfo expiredLock = new SandboxLockInfo();
+        expiredLock.setExpiresAt(OffsetDateTime.now().minusMinutes(1));
+        given(trainingRunRepository.findByIdWithLevelForRead(trainingRun1.getId())).willReturn(Optional.of(trainingRun1));
+        given(sandboxApiService.getSandboxAllocationUnitLock(trainingRun1.getSandboxInstanceAllocationId())).willReturn(expiredLock);
+
+        assertThrows(EntityConflictException.class, () -> trainingRunService.resumeTrainingRun(trainingRun1.getId()));
+
+        assertEquals(TRState.RUNNING, trainingRun1.getState());
+        then(trainingRunRepository).should(never()).findByIdWithLevel(anyLong());
+        then(trainingRunRepository).should(never()).save(any(TrainingRun.class));
+        then(trAcquisitionLockRepository).should(never()).deleteByParticipantRefIdAndTrainingInstanceId(anyLong(), anyLong());
+    }
+
+    @Test
+    public void resumeTrainingRunMissingSandboxLockDoesNotMarkExpired() {
+        trainingRun1.getTrainingInstance().setLocalEnvironment(false);
+        trainingRun1.setSandboxInstanceRefId("sandbox-id");
+        trainingRun1.setSandboxInstanceAllocationId(7);
+        given(trainingRunRepository.findByIdWithLevelForRead(trainingRun1.getId())).willReturn(Optional.of(trainingRun1));
+        given(sandboxApiService.getSandboxAllocationUnitLock(trainingRun1.getSandboxInstanceAllocationId()))
+                .willThrow(new MicroserviceApiException("Error", new CustomWebClientException(HttpStatus.NOT_FOUND, PythonApiError.of("Some error"))));
+
+        assertThrows(EntityConflictException.class, () -> trainingRunService.resumeTrainingRun(trainingRun1.getId()));
+
+        assertEquals(TRState.RUNNING, trainingRun1.getState());
+        then(trainingRunRepository).should(never()).findByIdWithLevel(anyLong());
+        then(trainingRunRepository).should(never()).save(any(TrainingRun.class));
+        then(trAcquisitionLockRepository).should(never()).deleteByParticipantRefIdAndTrainingInstanceId(anyLong(), anyLong());
     }
 
     @Test
