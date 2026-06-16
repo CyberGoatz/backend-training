@@ -177,8 +177,13 @@ public class TrainingRunServiceTest {
         trainingRun2 = testDataFactory.getRunningRun();
         trainingRun2.setId(2L);
         trainingRun2.setCurrentLevel(infoLevel);
+        trainingRun2.setLevelAnswered(true);
         trainingRun2.setParticipantRef(participantRef);
         trainingRun2.setTrainingInstance(trainingInstance2);
+
+        SandboxLockInfo activeLock = new SandboxLockInfo();
+        activeLock.setExpiresAt(OffsetDateTime.now().plusMinutes(10));
+        given(sandboxApiService.getSandboxAllocationUnitLock(anyInt())).willReturn(activeLock);
 
         assessmentLevel = testDataFactory.getTest();
         assessmentLevel.setId(3L);
