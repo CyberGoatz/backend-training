@@ -31,6 +31,7 @@ import cz.cyberrange.platform.training.service.services.TrainingDefinitionServic
 import cz.cyberrange.platform.training.service.services.TrainingInstanceService;
 import cz.cyberrange.platform.training.service.services.TrainingRunService;
 import cz.cyberrange.platform.training.service.services.UserService;
+import cz.cyberrange.platform.training.service.services.api.CyberGoatzApiService;
 import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
 import cz.cyberrange.platform.training.service.services.api.SandboxApiService;
 import cz.cyberrange.platform.training.service.services.api.TrainingFeedbackApiService;
@@ -94,6 +95,8 @@ public class TrainingInstanceFacadeTest {
     private SandboxApiService sandboxApiService;
     @MockBean
     private TrainingFeedbackApiService trainingFeedbackApiService;
+    @MockBean
+    private CyberGoatzApiService cyberGoatzApiService;
 
     private TrainingInstance trainingInstance1, trainingInstance2;
     private TrainingInstanceCreateDTO trainingInstanceCreate;
@@ -111,7 +114,7 @@ public class TrainingInstanceFacadeTest {
         MockitoAnnotations.openMocks(this);
         trainingInstanceFacade = new TrainingInstanceFacade(trainingInstanceService, trainingDefinitionService, trainingRunService,
                 cheatingDetectionService, userService, elasticsearchApiService, securityService, sandboxApiService, trainingInstanceMapper,
-                trainingRunMapper, trainingFeedbackApiService);
+                trainingRunMapper, trainingFeedbackApiService, cyberGoatzApiService);
 
         pageable = PageRequest.of(0, 5);
 
@@ -216,6 +219,7 @@ public class TrainingInstanceFacadeTest {
         trainingInstance1.setPoolId(null);
         given(trainingInstanceService.findById(trainingInstance1.getId())).willReturn(trainingInstance1);
         trainingInstanceFacade.delete(trainingInstance1.getId(), false);
+        then(cyberGoatzApiService).should().deleteTrackItemsByTrainingInstanceId(trainingInstance1.getId());
         then(trainingInstanceService).should().delete(trainingInstance1);
     }
 

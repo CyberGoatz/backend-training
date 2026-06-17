@@ -34,6 +34,7 @@ import cz.cyberrange.platform.training.service.services.TrainingDefinitionServic
 import cz.cyberrange.platform.training.service.services.TrainingInstanceService;
 import cz.cyberrange.platform.training.service.services.TrainingRunService;
 import cz.cyberrange.platform.training.service.services.UserService;
+import cz.cyberrange.platform.training.service.services.api.CyberGoatzApiService;
 import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
 import cz.cyberrange.platform.training.service.services.api.SandboxApiService;
 import cz.cyberrange.platform.training.service.services.api.TrainingFeedbackApiService;
@@ -76,6 +77,7 @@ public class TrainingInstanceFacade {
     private final ElasticsearchApiService elasticsearchApiService;
     private final SandboxApiService sandboxApiService;
     private final TrainingFeedbackApiService trainingFeedbackApiService;
+    private final CyberGoatzApiService cyberGoatzApiService;
 
 
     /**
@@ -102,7 +104,8 @@ public class TrainingInstanceFacade {
                                   SandboxApiService sandboxApiService,
                                   TrainingInstanceMapper trainingInstanceMapper,
                                   TrainingRunMapper trainingRunMapper,
-                                  TrainingFeedbackApiService trainingFeedbackApiService) {
+                                  TrainingFeedbackApiService trainingFeedbackApiService,
+                                  CyberGoatzApiService cyberGoatzApiService) {
         this.trainingInstanceService = trainingInstanceService;
         this.trainingDefinitionService = trainingDefinitionService;
         this.trainingRunService = trainingRunService;
@@ -114,6 +117,7 @@ public class TrainingInstanceFacade {
         this.trainingInstanceMapper = trainingInstanceMapper;
         this.trainingRunMapper = trainingRunMapper;
         this.trainingFeedbackApiService = trainingFeedbackApiService;
+        this.cyberGoatzApiService = cyberGoatzApiService;
     }
 
     /**
@@ -347,6 +351,7 @@ public class TrainingInstanceFacade {
         cheatingDetectionService.deleteAllCheatingDetectionsOfTrainingInstance(trainingInstanceId);
         trainingFeedbackApiService.deleteAllGraphsByTrainingInstance(trainingInstanceId);
         elasticsearchApiService.deleteEventsByTrainingInstanceId(trainingInstance.getId());
+        cyberGoatzApiService.deleteTrackItemsByTrainingInstanceId(trainingInstanceId);
     }
 
     private void deleteBashCommandsByPool(Long poolId){
