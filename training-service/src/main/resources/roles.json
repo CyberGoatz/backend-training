@@ -16,8 +16,18 @@
   },
   {
     "role_type": "ROLE_TRAINING_TRAINEE",
-    "default": true,
-    "description": "This role is default and will allow you to access training run and play a training in CyberRangeCZ Platform Training module."
+    "default": false,
+    "description": "This role will allow you to access training run and play a training in CyberRangeCZ Platform Training module."
+  },
+  {
+    "role_type": "ROLE_CYBERGOATZ_WAITLISTED",
+    "default": false,
+    "description": "This role marks newly registered users as waiting for CyberGoatz MVP access approval."
+  },
+  {
+    "role_type": "ROLE_CYBERGOATZ_ACCESS",
+    "default": false,
+    "description": "This role allows users to enter the CyberGoatz learner platform."
   }
 
 ]

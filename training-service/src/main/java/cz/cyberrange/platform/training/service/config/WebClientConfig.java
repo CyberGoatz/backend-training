@@ -44,6 +44,8 @@ public class WebClientConfig {
     private String answersStorageURI;
     @Value("${training-feedback-service.uri}")
     private String trainingFeedbackServiceURI;
+    @Value("${cybergoatz-service.uri:}")
+    private String cyberGoatzServiceURI;
     @Value("${training.sandbox.service-account.token-uri:}")
     private String sandboxServiceAccountTokenUri;
     @Value("${training.sandbox.service-account.client-id:}")
@@ -165,6 +167,29 @@ public class WebClientConfig {
                     exchangeFilterFunctions.add(javaMicroserviceExceptionHandlingFunction());
                 })
                 .build();
+    }
+
+    /**
+     * CyberGoatz service web client.
+     *
+     * @return the web client
+     */
+    @Bean
+    @Qualifier("cyberGoatzServiceWebClient")
+    public WebClient cyberGoatzServiceWebClient() {
+        WebClient.Builder builder = WebClient.builder()
+                .defaultHeaders(headers -> {
+                    headers.add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+                    headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+                })
+                .filters(exchangeFilterFunctions -> {
+                    exchangeFilterFunctions.add(addSecurityHeader(false));
+                    exchangeFilterFunctions.add(javaMicroserviceExceptionHandlingFunction());
+                });
+        if (!cyberGoatzServiceURI.isBlank()) {
+            builder.baseUrl(cyberGoatzServiceURI);
+        }
+        return builder.build();
     }
 
     private ExchangeFilterFunction addSecurityHeader(boolean useSandboxServiceAccountFallback) {
