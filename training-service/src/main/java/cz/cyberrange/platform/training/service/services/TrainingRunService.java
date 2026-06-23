@@ -2,6 +2,7 @@ package cz.cyberrange.platform.training.service.services;
 
 import com.querydsl.core.types.Predicate;
 import cz.cyberrange.platform.training.api.dto.assessmentlevel.question.QuestionAnswerDTO;
+import cz.cyberrange.platform.training.api.enums.Actions;
 import cz.cyberrange.platform.training.api.exceptions.BadRequestException;
 import cz.cyberrange.platform.training.api.exceptions.EntityConflictException;
 import cz.cyberrange.platform.training.api.exceptions.EntityErrorDetail;
@@ -51,6 +52,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -228,6 +230,25 @@ public class TrainingRunService {
      */
     public Page<TrainingRun> findAllByParticipantRefUserRefId(Predicate predicate, Pageable pageable) {
         return trainingRunRepository.findAllByParticipantRefId(securityService.getUserRefIdFromUserAndGroup(), predicate, pageable);
+    }
+
+    /**
+     * Finds Training Runs of logged in user by possible learner action.
+     *
+     * @param predicate represents a predicate (boolean-valued function) of one argument.
+     * @param actions possible learner actions to include.
+     * @param pageable pageable parameter with information about pagination.
+     * @return {@link TrainingRun}s of logged in user.
+     */
+    public Page<TrainingRun> findAllByParticipantRefUserRefIdAndPossibleActions(Predicate predicate,
+                                                                                Collection<Actions> actions,
+                                                                                Pageable pageable) {
+        return trainingRunRepository.findAllByParticipantRefIdAndPossibleActions(
+                securityService.getUserRefIdFromUserAndGroup(),
+                predicate,
+                actions,
+                pageable
+        );
     }
 
     /**

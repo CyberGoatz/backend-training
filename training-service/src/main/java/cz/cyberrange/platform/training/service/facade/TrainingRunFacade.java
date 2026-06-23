@@ -73,6 +73,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -234,6 +235,25 @@ public class TrainingRunFacade {
     @TransactionalRO
     public PageResultResource<AccessedTrainingRunDTO> findAllAccessedTrainingRuns(Predicate predicate, Pageable pageable, String sortByTitle) {
         Page<TrainingRun> trainingRuns = trainingRunService.findAllByParticipantRefUserRefId(predicate, pageable);
+        return convertToAccessedRunDTO(trainingRuns, sortByTitle);
+    }
+
+    /**
+     * Finds Training Runs of logged in user by possible learner action.
+     *
+     * @param predicate represents a predicate (boolean-valued function) of one argument.
+     * @param pageable pageable parameter with information about pagination.
+     * @param sortByTitle optional parameter. "asc" for ascending sort, "desc" for descending and null if sort is not wanted.
+     * @param actions possible learner actions to include.
+     * @return Page of all {@link AccessedTrainingRunDTO} of logged in user matching the action filter.
+     */
+    @IsTraineeOrAdmin
+    @TransactionalRO
+    public PageResultResource<AccessedTrainingRunDTO> findAllAccessedTrainingRunsByPossibleActions(Predicate predicate,
+                                                                                                   Pageable pageable,
+                                                                                                   String sortByTitle,
+                                                                                                   Collection<Actions> actions) {
+        Page<TrainingRun> trainingRuns = trainingRunService.findAllByParticipantRefUserRefIdAndPossibleActions(predicate, actions, pageable);
         return convertToAccessedRunDTO(trainingRuns, sortByTitle);
     }
 

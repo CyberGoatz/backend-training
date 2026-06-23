@@ -13,6 +13,7 @@ import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstance
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceCreateDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceFindAllResponseDTO;
+import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstancePublicDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceUpdateDTO;
 import cz.cyberrange.platform.training.api.responses.PageResultResource;
 import cz.cyberrange.platform.training.persistence.model.TrainingInstance;
@@ -97,6 +98,58 @@ public class TrainingInstancesRestController {
         PageResultResource<TrainingInstanceCatalogDTO> trainingInstanceCatalog = trainingInstanceFacade.findCatalog(predicate, pageable);
         Squiggly.init(objectMapper, fields);
         return ResponseEntity.ok(SquigglyUtils.stringify(objectMapper, trainingInstanceCatalog));
+    }
+
+    /**
+     * Get learner-facing Training Instance catalog entries by id.
+     *
+     * @param ids    ids of the Training Instances to return.
+     * @param fields attributes of the object to be returned as the result.
+     * @return learner-facing Training Instance catalog entries.
+     */
+    @ApiOperation(httpMethod = "GET",
+            value = "Get learner-facing training instance catalog entries by id.",
+            response = TrainingInstanceCatalogRestResource.class,
+            nickname = "findTrainingInstanceCatalogByIds",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "The training instance catalog entries have been found.", response = TrainingInstanceCatalogRestResource.class),
+            @ApiResponse(code = 500, message = "Unexpected condition was encountered.", response = ApiError.class)
+    })
+    @GetMapping(path = "/catalog/by-ids", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Object> findTrainingInstanceCatalogByIds(@ApiParam(value = "Training instance IDs", required = true)
+                                                                   @RequestParam(value = "ids") List<Long> ids,
+                                                                   @ApiParam(value = "Fields which should be returned in REST API response", required = false)
+                                                                   @RequestParam(value = "fields", required = false) String fields) {
+        List<TrainingInstanceCatalogDTO> trainingInstanceCatalog = trainingInstanceFacade.findCatalogByIds(ids);
+        Squiggly.init(objectMapper, fields);
+        return ResponseEntity.ok(SquigglyUtils.stringify(objectMapper, trainingInstanceCatalog));
+    }
+
+    /**
+     * Get learner-facing Training Instance detail by id.
+     *
+     * @param id id of the Training Instance to return.
+     * @return Learner-facing Training Instance detail by id.
+     */
+    @ApiOperation(httpMethod = "GET",
+            value = "Get learner-facing training instance detail by id.",
+            response = TrainingInstancePublicDTO.class,
+            nickname = "findTrainingInstancePublicDetailById",
+            notes = "Returns a training instance with only learner-facing training definition and level metadata.",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "The training instance has been found", response = TrainingInstancePublicDTO.class),
+            @ApiResponse(code = 404, message = "The training instance has not been found.", response = ApiError.class),
+            @ApiResponse(code = 500, message = "Unexpected condition was encountered.", response = ApiError.class)
+    })
+    @GetMapping(path = "/{instanceId}/detail", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<TrainingInstancePublicDTO> findTrainingInstancePublicDetailById(
+            @ApiParam(value = "Training instance ID", required = true)
+            @PathVariable("instanceId") Long id) {
+        return ResponseEntity.ok(trainingInstanceFacade.findPublicDetailById(id));
     }
 
     /**
