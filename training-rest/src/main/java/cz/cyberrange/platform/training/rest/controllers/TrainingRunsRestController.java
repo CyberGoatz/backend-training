@@ -17,6 +17,7 @@ import cz.cyberrange.platform.training.api.dto.run.AccessedTrainingRunDTO;
 import cz.cyberrange.platform.training.api.dto.run.TrainingRunByIdDTO;
 import cz.cyberrange.platform.training.api.dto.run.TrainingRunDTO;
 import cz.cyberrange.platform.training.api.dto.traininglevel.ValidateAnswerDTO;
+import cz.cyberrange.platform.training.api.enums.Actions;
 import cz.cyberrange.platform.training.api.responses.PageResultResource;
 import cz.cyberrange.platform.training.persistence.model.TrainingRun;
 import cz.cyberrange.platform.training.rest.utils.annotations.ApiPageableSwagger;
@@ -235,6 +236,82 @@ public class TrainingRunsRestController {
                                                              @ApiParam(value = "Sort by title attribute. As values us asc|desc", required = false, example = "asc")
                                                              @RequestParam(value = "sortByTitle", required = false) String sortByTitle) {
         PageResultResource<AccessedTrainingRunDTO> accessedTrainingRunDTOS = trainingRunFacade.findAllAccessedTrainingRuns(predicate, pageable, sortByTitle);
+        Squiggly.init(objectMapper, fields);
+        return new ResponseEntity<>(SquigglyUtils.stringify(objectMapper, accessedTrainingRunDTOS), HttpStatus.OK);
+    }
+
+    /**
+     * Get accessed Training Runs that can be continued or re-attempted.
+     *
+     * @param predicate   specifies query to database.
+     * @param pageable    pageable parameter with information about pagination.
+     * @param fields      attributes of the object to be returned as the result.
+     * @param sortByTitle "asc" for ascending alphabetical sort by title, "desc" for descending
+     * @return accessed Training Runs for Continue missions.
+     */
+    @ApiOperation(httpMethod = "GET",
+            value = "Get continue-accessed training runs.",
+            notes = "Returns accessed training runs for the logged in user that can be resumed or have an expired sandbox.",
+            response = AccessedTrainingRunRestResource.class,
+            nickname = "getContinueAccessedTrainingRuns",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "The accessed training runs have been found.", response = AccessedTrainingRunDTO.class, responseContainer = "List"),
+            @ApiResponse(code = 500, message = "Unexpected condition was encountered.", response = ApiError.class)
+    })
+    @ApiPageableSwagger
+    @GetMapping(path = "/accessible/continue", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Object> getContinueAccessedTrainingRuns(@QuerydslPredicate(root = TrainingRun.class) Predicate predicate,
+                                                                  @ApiParam(value = "Pagination support.", required = false) Pageable pageable,
+                                                                  @ApiParam(value = "Fields which should be returned in REST API response", required = false)
+                                                                  @RequestParam(value = "fields", required = false) String fields,
+                                                                  @ApiParam(value = "Sort by title attribute. As values us asc|desc", required = false, example = "asc")
+                                                                  @RequestParam(value = "sortByTitle", required = false) String sortByTitle) {
+        PageResultResource<AccessedTrainingRunDTO> accessedTrainingRunDTOS = trainingRunFacade.findAllAccessedTrainingRunsByPossibleActions(
+                predicate,
+                pageable,
+                sortByTitle,
+                List.of(Actions.RESUME, Actions.SANDBOX_EXPIRED)
+        );
+        Squiggly.init(objectMapper, fields);
+        return new ResponseEntity<>(SquigglyUtils.stringify(objectMapper, accessedTrainingRunDTOS), HttpStatus.OK);
+    }
+
+    /**
+     * Get accessed Training Runs that should show results.
+     *
+     * @param predicate   specifies query to database.
+     * @param pageable    pageable parameter with information about pagination.
+     * @param fields      attributes of the object to be returned as the result.
+     * @param sortByTitle "asc" for ascending alphabetical sort by title, "desc" for descending
+     * @return accessed Training Runs for Finished missions.
+     */
+    @ApiOperation(httpMethod = "GET",
+            value = "Get finished-accessed training runs.",
+            notes = "Returns accessed training runs for the logged in user that should show results.",
+            response = AccessedTrainingRunRestResource.class,
+            nickname = "getFinishedAccessedTrainingRuns",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "The accessed training runs have been found.", response = AccessedTrainingRunDTO.class, responseContainer = "List"),
+            @ApiResponse(code = 500, message = "Unexpected condition was encountered.", response = ApiError.class)
+    })
+    @ApiPageableSwagger
+    @GetMapping(path = "/accessible/finished", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Object> getFinishedAccessedTrainingRuns(@QuerydslPredicate(root = TrainingRun.class) Predicate predicate,
+                                                                  @ApiParam(value = "Pagination support.", required = false) Pageable pageable,
+                                                                  @ApiParam(value = "Fields which should be returned in REST API response", required = false)
+                                                                  @RequestParam(value = "fields", required = false) String fields,
+                                                                  @ApiParam(value = "Sort by title attribute. As values us asc|desc", required = false, example = "asc")
+                                                                  @RequestParam(value = "sortByTitle", required = false) String sortByTitle) {
+        PageResultResource<AccessedTrainingRunDTO> accessedTrainingRunDTOS = trainingRunFacade.findAllAccessedTrainingRunsByPossibleActions(
+                predicate,
+                pageable,
+                sortByTitle,
+                List.of(Actions.RESULTS)
+        );
         Squiggly.init(objectMapper, fields);
         return new ResponseEntity<>(SquigglyUtils.stringify(objectMapper, accessedTrainingRunDTOS), HttpStatus.OK);
     }

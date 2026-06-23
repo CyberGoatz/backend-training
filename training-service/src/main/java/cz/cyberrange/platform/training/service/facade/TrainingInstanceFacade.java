@@ -1,8 +1,10 @@
 package cz.cyberrange.platform.training.service.facade;
 
 import com.querydsl.core.types.Predicate;
+import cz.cyberrange.platform.training.api.dto.BasicLevelInfoDTO;
 import cz.cyberrange.platform.training.api.dto.UserRefDTO;
 import cz.cyberrange.platform.training.api.dto.run.TrainingRunDTO;
+import cz.cyberrange.platform.training.api.dto.trainingdefinition.TrainingDefinitionPublicDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceAssignPoolIdDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceBasicInfoDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceCatalogDTO;
@@ -10,7 +12,9 @@ import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstance
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceFindAllResponseDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceIsFinishedInfoDTO;
+import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstancePublicDTO;
 import cz.cyberrange.platform.training.api.dto.traininginstance.TrainingInstanceUpdateDTO;
+import cz.cyberrange.platform.training.api.enums.LevelType;
 import cz.cyberrange.platform.training.api.enums.RoleType;
 import cz.cyberrange.platform.training.api.exceptions.BadRequestException;
 import cz.cyberrange.platform.training.api.exceptions.EntityConflictException;
@@ -18,8 +22,11 @@ import cz.cyberrange.platform.training.api.exceptions.EntityErrorDetail;
 import cz.cyberrange.platform.training.api.exceptions.MicroserviceApiException;
 import cz.cyberrange.platform.training.api.responses.PageResultResource;
 import cz.cyberrange.platform.training.api.responses.PoolInfoDTO;
+import cz.cyberrange.platform.training.persistence.model.AccessLevel;
 import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
+import cz.cyberrange.platform.training.persistence.model.AssessmentLevel;
 import cz.cyberrange.platform.training.persistence.model.TrainingInstance;
+import cz.cyberrange.platform.training.persistence.model.TrainingDefinition;
 import cz.cyberrange.platform.training.persistence.model.TrainingLevel;
 import cz.cyberrange.platform.training.persistence.model.TrainingRun;
 import cz.cyberrange.platform.training.persistence.model.UserRef;
@@ -139,6 +146,21 @@ public class TrainingInstanceFacade {
     }
 
     /**
+     * Finds learner-facing Training Instance detail by id.
+     *
+     * @param id of a Training Instance that would be returned
+     * @return learner-facing {@link TrainingInstancePublicDTO} by id
+     */
+    @PreAuthorize("isAuthenticated()")
+    @TransactionalRO
+    public TrainingInstancePublicDTO findPublicDetailById(Long id) {
+        TrainingInstance trainingInstance = trainingInstanceService.findByIdIncludingDefinition(id);
+        TrainingInstancePublicDTO dto = mapToPublicDTO(trainingInstance);
+        addPoolAvailability(dto, trainingInstance);
+        return dto;
+    }
+
+    /**
      * Get Training instance access token by pool id.
      *
      * @param poolId id of the assigned pool.
@@ -185,8 +207,31 @@ public class TrainingInstanceFacade {
         return new PageResultResource<>(mapped, trainingInstanceMapper.createPagination(trainingInstances));
     }
 
+    /**
+     * Finds learner-facing Training Instance catalog entries by ids.
+     *
+     * @param ids training instance ids.
+     * @return learner-facing catalog entries.
+     */
+    @PreAuthorize("isAuthenticated()")
+    @TransactionalRO
+    public List<TrainingInstanceCatalogDTO> findCatalogByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+
+        return trainingInstanceService.findAllByIds(ids).stream()
+                .map(this::mapToCatalogDTO)
+                .collect(Collectors.toList());
+    }
+
     private TrainingInstanceCatalogDTO mapToCatalogDTO(TrainingInstance trainingInstance) {
         TrainingInstanceCatalogDTO dto = trainingInstanceMapper.mapToCatalogDTO(trainingInstance);
+        addPoolAvailability(dto, trainingInstance);
+        return dto;
+    }
+
+    private void addPoolAvailability(TrainingInstanceCatalogDTO dto, TrainingInstance trainingInstance) {
         if (!trainingInstance.isLocalEnvironment() && trainingInstance.getPoolId() != null) {
             try {
                 PoolInfoDTO poolInfo = sandboxApiService.getPoolInfo(trainingInstance.getPoolId());
@@ -197,6 +242,64 @@ public class TrainingInstanceFacade {
             } catch (RuntimeException ex) {
                 LOG.debug("Unable to load learner catalog pool availability for pool ID {}.", trainingInstance.getPoolId(), ex);
             }
+        }
+    }
+
+    private void addPoolAvailability(TrainingInstancePublicDTO dto, TrainingInstance trainingInstance) {
+        if (!trainingInstance.isLocalEnvironment() && trainingInstance.getPoolId() != null) {
+            try {
+                PoolInfoDTO poolInfo = sandboxApiService.getPoolInfo(trainingInstance.getPoolId());
+                if (poolInfo != null) {
+                    dto.setAvailablePoolSize(poolInfo.getSize());
+                    dto.setMaxPoolSize(poolInfo.getMaxSize());
+                }
+            } catch (RuntimeException ex) {
+                LOG.debug("Unable to load learner training instance pool availability for pool ID {}.", trainingInstance.getPoolId(), ex);
+            }
+        }
+    }
+
+    private TrainingInstancePublicDTO mapToPublicDTO(TrainingInstance trainingInstance) {
+        TrainingInstancePublicDTO dto = new TrainingInstancePublicDTO();
+        dto.setId(trainingInstance.getId());
+        dto.setStartTime(trainingInstance.getStartTime());
+        dto.setEndTime(trainingInstance.getEndTime());
+        dto.setTitle(trainingInstance.getTitle());
+        dto.setTrainingDefinition(mapToPublicDefinitionDTO(trainingInstance.getTrainingDefinition()));
+        dto.setPoolId(trainingInstance.getPoolId());
+        dto.setLocalEnvironment(trainingInstance.isLocalEnvironment());
+        dto.setShowStepperBar(trainingInstance.isShowStepperBar());
+        dto.setBackwardMode(trainingInstance.isBackwardMode());
+        return dto;
+    }
+
+    private TrainingDefinitionPublicDTO mapToPublicDefinitionDTO(TrainingDefinition trainingDefinition) {
+        TrainingDefinitionPublicDTO dto = new TrainingDefinitionPublicDTO();
+        dto.setId(trainingDefinition.getId());
+        dto.setTitle(trainingDefinition.getTitle());
+        dto.setDescription(trainingDefinition.getDescription());
+        dto.setPrerequisites(trainingDefinition.getPrerequisites());
+        dto.setOutcomes(trainingDefinition.getOutcomes());
+        dto.setEstimatedDuration(trainingDefinition.getEstimatedDuration());
+        dto.setLevels(trainingDefinitionService.findAllLevelsFromDefinition(trainingDefinition.getId()).stream()
+                .map(this::mapToBasicLevelInfoDTO)
+                .collect(Collectors.toList()));
+        return dto;
+    }
+
+    private BasicLevelInfoDTO mapToBasicLevelInfoDTO(AbstractLevel level) {
+        BasicLevelInfoDTO dto = new BasicLevelInfoDTO();
+        dto.setId(level.getId());
+        dto.setTitle(level.getTitle());
+        dto.setOrder(level.getOrder());
+        if (level instanceof AssessmentLevel) {
+            dto.setLevelType(LevelType.ASSESSMENT_LEVEL);
+        } else if (level instanceof TrainingLevel) {
+            dto.setLevelType(LevelType.TRAINING_LEVEL);
+        } else if (level instanceof AccessLevel) {
+            dto.setLevelType(LevelType.ACCESS_LEVEL);
+        } else {
+            dto.setLevelType(LevelType.INFO_LEVEL);
         }
         return dto;
     }
