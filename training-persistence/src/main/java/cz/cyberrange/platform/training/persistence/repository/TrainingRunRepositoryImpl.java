@@ -2,6 +2,7 @@ package cz.cyberrange.platform.training.persistence.repository;
 
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Predicate;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.JPQLQuery;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -125,7 +126,40 @@ public class TrainingRunRepositoryImpl extends QuerydslRepositorySupport impleme
                         .and(noFinishedRunForInstance));
             }
         });
+
+        if (!actions.contains(Actions.RESULTS)
+                && (actions.contains(Actions.RESUME) || actions.contains(Actions.SANDBOX_EXPIRED))) {
+            actionPredicate.and(buildPreferredContinueRunPredicate(trainingRun, trainingInstance, userRefId, now));
+        }
         return actionPredicate;
+    }
+
+    private Predicate buildPreferredContinueRunPredicate(QTrainingRun trainingRun,
+                                                         QTrainingInstance trainingInstance,
+                                                         Long userRefId,
+                                                         LocalDateTime now) {
+        QTrainingRun preferredRun = new QTrainingRun("preferredRun");
+
+        BooleanExpression currentRunIsResumeCandidate = trainingRun.state.ne(TRState.EXPIRED)
+                .and(trainingRun.state.ne(TRState.FINISHED))
+                .and(trainingInstance.endTime.isNull().or(trainingInstance.endTime.after(now)));
+        BooleanExpression preferredRunIsResumeCandidate = preferredRun.state.ne(TRState.EXPIRED)
+                .and(preferredRun.state.ne(TRState.FINISHED))
+                .and(preferredRun.trainingInstance.endTime.isNull().or(preferredRun.trainingInstance.endTime.after(now)));
+        BooleanExpression preferredResumeRunExists = preferredRunIsResumeCandidate
+                .and(trainingRun.state.eq(TRState.EXPIRED)
+                        .or(currentRunIsResumeCandidate.and(preferredRun.id.gt(trainingRun.id))));
+        BooleanExpression newerExpiredRunExists = preferredRun.state.eq(TRState.EXPIRED)
+                .and(trainingRun.state.eq(TRState.EXPIRED))
+                .and(preferredRun.id.gt(trainingRun.id));
+
+        return JPAExpressions.selectOne()
+                .from(preferredRun)
+                .where(preferredRun.participantRef.userRefId.eq(userRefId)
+                        .and(preferredRun.trainingInstance.id.eq(trainingInstance.id))
+                        .and(preferredRun.id.ne(trainingRun.id))
+                        .and(preferredResumeRunExists.or(newerExpiredRunExists)))
+                .notExists();
     }
 
     private <T> Page getPage(JPQLQuery<T> query, Pageable pageable) {
