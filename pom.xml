@@ -60,6 +60,7 @@
         <spring-data-commons.version>2.6.2</spring-data-commons.version>
         <swagger-annotations.version>1.6.4</swagger-annotations.version>
         <lombok.version>1.18.36</lombok.version>
+        <shedlock.version>4.44.0</shedlock.version>
         <!-- code quality -->
         <error-prone.version>2.41.0</error-prone.version>
         <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
@@ -272,4 +273,3 @@
         <module>training-api</module>
     </modules>
 </project>
-

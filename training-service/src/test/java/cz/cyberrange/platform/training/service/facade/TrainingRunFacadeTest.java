@@ -42,6 +42,7 @@ import org.springframework.data.domain.Pageable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -178,8 +179,8 @@ public class TrainingRunFacadeTest {
         PathBuilder<TrainingRun> tR = new PathBuilder<>(TrainingRun.class, "trainingRun");
         Predicate predicate = tR.isNotNull();
 
-        given(trainingRunService.findAllByParticipantRefUserRefId(any(Predicate.class), any(Pageable.class))).willReturn(page);
-        given(trainingRunService.getMaxLevelOrder(trainingDefinition.getId())).willReturn(2);
+        given(trainingRunService.findAllByParticipantRefUserRefId(any(Predicate.class), any(Pageable.class), any())).willReturn(page);
+        given(trainingRunService.getMaxLevelOrders(any())).willReturn(Map.of(trainingDefinition.getId(), 2));
 
         PageResultResource<AccessedTrainingRunDTO> result = trainingRunFacade.findAllAccessedTrainingRuns(predicate, Pageable.unpaged(), null);
 

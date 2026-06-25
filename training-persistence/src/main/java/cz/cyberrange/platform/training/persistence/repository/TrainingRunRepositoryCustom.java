@@ -25,6 +25,20 @@ public interface TrainingRunRepositoryCustom {
     Page<TrainingRun> findAllByParticipantRefId(@Param("userRefId") Long userRefId, Predicate predicate, Pageable pageable);
 
     /**
+     * Find all training instances of logged in user.
+     *
+     * @param userRefId   the participant ref id
+     * @param predicate   represents a predicate (boolean-valued function) of one argument.
+     * @param pageable    the pageable
+     * @param sortByTitle optional title sort direction
+     * @return the page of training instances
+     */
+    Page<TrainingRun> findAllByParticipantRefId(@Param("userRefId") Long userRefId,
+                                                Predicate predicate,
+                                                Pageable pageable,
+                                                String sortByTitle);
+
+    /**
      * Find accessed training runs of logged in user by possible learner action.
      *
      * @param userRefId the participant ref id
@@ -37,4 +51,20 @@ public interface TrainingRunRepositoryCustom {
                                                                    Predicate predicate,
                                                                    Collection<Actions> actions,
                                                                    Pageable pageable);
+
+    /**
+     * Find accessed training runs of logged in user by possible learner action.
+     *
+     * @param userRefId   the participant ref id
+     * @param predicate   represents a predicate (boolean-valued function) of one argument.
+     * @param actions     possible learner actions to include
+     * @param pageable    the pageable
+     * @param sortByTitle optional title sort direction
+     * @return the page of training runs
+     */
+    Page<TrainingRun> findAllByParticipantRefIdAndPossibleActions(@Param("userRefId") Long userRefId,
+                                                                   Predicate predicate,
+                                                                   Collection<Actions> actions,
+                                                                   Pageable pageable,
+                                                                   String sortByTitle);
 }
