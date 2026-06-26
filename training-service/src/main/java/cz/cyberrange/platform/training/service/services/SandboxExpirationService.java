@@ -4,6 +4,7 @@ import cz.cyberrange.platform.training.api.exceptions.MicroserviceApiException;
 import cz.cyberrange.platform.training.api.responses.SandboxLockInfo;
 import cz.cyberrange.platform.training.persistence.model.TrainingRun;
 import cz.cyberrange.platform.training.service.services.api.SandboxApiService;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -36,6 +37,9 @@ public class SandboxExpirationService {
 
     @Scheduled(fixedDelayString = "${training.sandbox.expiration.scan-delay-ms:60000}",
             initialDelayString = "${training.sandbox.expiration.initial-delay-ms:60000}")
+    @SchedulerLock(name = "SandboxExpirationService.expireSandboxSessions",
+            lockAtLeastFor = "5m",
+            lockAtMostFor = "30m")
     public void expireSandboxSessions() {
         if (!enabled) {
             return;

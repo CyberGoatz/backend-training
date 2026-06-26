@@ -4,6 +4,9 @@ import cz.cyberrange.platform.commons.security.config.ResourceServerSecurityConf
 import cz.cyberrange.platform.commons.startup.config.MicroserviceRegistrationConfiguration;
 import cz.cyberrange.platform.training.elasticsearch.service.config.ElasticsearchServiceConfig;
 import cz.cyberrange.platform.training.persistence.config.PersistenceConfig;
+import net.javacrumbs.shedlock.core.LockProvider;
+import net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider;
+import net.javacrumbs.shedlock.spring.annotation.EnableSchedulerLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.MethodInvokingFactoryBean;
 import org.springframework.context.annotation.Bean;
@@ -11,9 +14,12 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.env.Environment;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.core.context.SecurityContextHolder;
+
+import javax.sql.DataSource;
 
 /**
  * The type Service config.
@@ -21,6 +27,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 @Configuration
 @EnableAsync(proxyTargetClass = true)
 @EnableScheduling
+@EnableSchedulerLock(defaultLockAtMostFor = "30m")
 @Import({MicroserviceRegistrationConfiguration.class,
         ElasticsearchServiceConfig.class,
         PersistenceConfig.class,
@@ -52,6 +59,16 @@ public class ServiceConfig {
         methodInvokingFactoryBean.setTargetMethod("setStrategyName");
         methodInvokingFactoryBean.setArguments((Object[]) new String[]{SecurityContextHolder.MODE_INHERITABLETHREADLOCAL});
         return methodInvokingFactoryBean;
+    }
+
+    @Bean
+    public LockProvider lockProvider(DataSource dataSource) {
+        return new JdbcTemplateLockProvider(
+                JdbcTemplateLockProvider.Configuration.builder()
+                        .withJdbcTemplate(new JdbcTemplate(dataSource))
+                        .usingDbTime()
+                        .build()
+        );
     }
 
 }

@@ -229,7 +229,24 @@ public class TrainingRunService {
      * @return {@link TrainingRun}s of logged in user.
      */
     public Page<TrainingRun> findAllByParticipantRefUserRefId(Predicate predicate, Pageable pageable) {
-        return trainingRunRepository.findAllByParticipantRefId(securityService.getUserRefIdFromUserAndGroup(), predicate, pageable);
+        return findAllByParticipantRefUserRefId(predicate, pageable, null);
+    }
+
+    /**
+     * Finds all Training Runs of logged in user.
+     *
+     * @param predicate represents a predicate (boolean-valued function) of one argument.
+     * @param pageable pageable parameter with information about pagination.
+     * @param sortByTitle optional title sort direction.
+     * @return {@link TrainingRun}s of logged in user.
+     */
+    public Page<TrainingRun> findAllByParticipantRefUserRefId(Predicate predicate, Pageable pageable, String sortByTitle) {
+        return trainingRunRepository.findAllByParticipantRefId(
+                securityService.getUserRefIdFromUserAndGroup(),
+                predicate,
+                pageable,
+                sortByTitle
+        );
     }
 
     /**
@@ -243,11 +260,28 @@ public class TrainingRunService {
     public Page<TrainingRun> findAllByParticipantRefUserRefIdAndPossibleActions(Predicate predicate,
                                                                                 Collection<Actions> actions,
                                                                                 Pageable pageable) {
+        return findAllByParticipantRefUserRefIdAndPossibleActions(predicate, actions, pageable, null);
+    }
+
+    /**
+     * Finds Training Runs of logged in user by possible learner action.
+     *
+     * @param predicate represents a predicate (boolean-valued function) of one argument.
+     * @param actions possible learner actions to include.
+     * @param pageable pageable parameter with information about pagination.
+     * @param sortByTitle optional title sort direction.
+     * @return {@link TrainingRun}s of logged in user.
+     */
+    public Page<TrainingRun> findAllByParticipantRefUserRefIdAndPossibleActions(Predicate predicate,
+                                                                                Collection<Actions> actions,
+                                                                                Pageable pageable,
+                                                                                String sortByTitle) {
         return trainingRunRepository.findAllByParticipantRefIdAndPossibleActions(
                 securityService.getUserRefIdFromUserAndGroup(),
                 predicate,
                 actions,
-                pageable
+                pageable,
+                sortByTitle
         );
     }
 
@@ -790,6 +824,20 @@ public class TrainingRunService {
      */
     public int getMaxLevelOrder(Long definitionId) {
         return abstractLevelRepository.getCurrentMaxOrder(definitionId);
+    }
+
+    /**
+     * Gets max level orders grouped by training definition ids.
+     *
+     * @param definitionIds training definition ids.
+     * @return map of training definition id to max level order.
+     */
+    public Map<Long, Integer> getMaxLevelOrders(Collection<Long> definitionIds) {
+        if (definitionIds == null || definitionIds.isEmpty()) {
+            return Map.of();
+        }
+        return abstractLevelRepository.getCurrentMaxOrders(definitionIds).stream()
+                .collect(Collectors.toMap(row -> (Long) row[0], row -> ((Number) row[1]).intValue()));
     }
 
     /**

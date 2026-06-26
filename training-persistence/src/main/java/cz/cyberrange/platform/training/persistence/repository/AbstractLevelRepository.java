@@ -4,10 +4,12 @@ import cz.cyberrange.platform.training.persistence.model.AbstractLevel;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.querydsl.QuerydslPredicateExecutor;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -67,6 +69,16 @@ public interface AbstractLevelRepository extends JpaRepository<AbstractLevel, Lo
      * @return the current max order of {@link AbstractLevel} in given {@link cz.cyberrange.platform.training.persistence.model.TrainingDefinition}
      */
     Integer getCurrentMaxOrder(@Param("trainingDefinitionId") Long trainingDefinitionId);
+
+    /**
+     * Gets current max order grouped by training definition ids.
+     *
+     * @param trainingDefinitionIds training definition ids
+     * @return rows containing training definition id and current max order
+     */
+    @Query("SELECT l.trainingDefinition.id, MAX(l.order) FROM AbstractLevel l " +
+            "WHERE l.trainingDefinition.id IN :trainingDefinitionIds GROUP BY l.trainingDefinition.id")
+    List<Object[]> getCurrentMaxOrders(@Param("trainingDefinitionIds") Collection<Long> trainingDefinitionIds);
 
     /**
      * Increase level order from given order to the given order.

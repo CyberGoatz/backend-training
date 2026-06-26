@@ -2,6 +2,7 @@ package cz.cyberrange.platform.training.persistence.repository;
 
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Predicate;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.JPQLQuery;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -41,22 +42,28 @@ public class TrainingRunRepositoryImpl extends QuerydslRepositorySupport impleme
     @Override
     @Transactional
     public Page<TrainingRun> findAllByParticipantRefId(@Param("userRefId") Long userRefId, Predicate predicate, Pageable pageable) {
+        return findAllByParticipantRefId(userRefId, predicate, pageable, null);
+    }
+
+    @Override
+    @Transactional
+    public Page<TrainingRun> findAllByParticipantRefId(@Param("userRefId") Long userRefId,
+                                                       Predicate predicate,
+                                                       Pageable pageable,
+                                                       String sortByTitle) {
 
         QTrainingRun trainingRun = QTrainingRun.trainingRun;
         QUserRef participantRef = new QUserRef("participantRef");
         QTrainingInstance trainingInstance = new QTrainingInstance("trainingInstance");
         QTrainingDefinition trainingDefinition = new QTrainingDefinition("trainingDefinition");
 
-        JPQLQuery<TrainingRun> query = new JPAQueryFactory(entityManager).selectFrom(trainingRun).distinct()
-                .leftJoin(trainingRun.participantRef, participantRef)
-                .leftJoin(trainingRun.trainingInstance, trainingInstance)
-                .leftJoin(trainingInstance.trainingDefinition, trainingDefinition)
-                .where(participantRef.userRefId.eq(userRefId));
+        JPQLQuery<TrainingRun> countQuery = buildAccessedTrainingRunsQuery(
+                userRefId, predicate, trainingRun, participantRef, trainingInstance, trainingDefinition, false);
+        JPQLQuery<TrainingRun> contentQuery = buildAccessedTrainingRunsQuery(
+                userRefId, predicate, trainingRun, participantRef, trainingInstance, trainingDefinition, true);
+        applyTitleSort(contentQuery, trainingInstance, trainingRun, sortByTitle);
 
-        if (predicate != null) {
-            query.where(predicate);
-        }
-        return getPage(query, pageable);
+        return getPage(contentQuery, countQuery, pageable);
     }
 
     @Override
@@ -65,20 +72,25 @@ public class TrainingRunRepositoryImpl extends QuerydslRepositorySupport impleme
                                                                          Predicate predicate,
                                                                          Collection<Actions> actions,
                                                                          Pageable pageable) {
+        return findAllByParticipantRefIdAndPossibleActions(userRefId, predicate, actions, pageable, null);
+    }
+
+    @Override
+    @Transactional
+    public Page<TrainingRun> findAllByParticipantRefIdAndPossibleActions(@Param("userRefId") Long userRefId,
+                                                                         Predicate predicate,
+                                                                         Collection<Actions> actions,
+                                                                         Pageable pageable,
+                                                                         String sortByTitle) {
         QTrainingRun trainingRun = QTrainingRun.trainingRun;
         QUserRef participantRef = new QUserRef("participantRef");
         QTrainingInstance trainingInstance = new QTrainingInstance("trainingInstance");
         QTrainingDefinition trainingDefinition = new QTrainingDefinition("trainingDefinition");
 
-        JPQLQuery<TrainingRun> query = new JPAQueryFactory(entityManager).selectFrom(trainingRun).distinct()
-                .leftJoin(trainingRun.participantRef, participantRef)
-                .leftJoin(trainingRun.trainingInstance, trainingInstance)
-                .leftJoin(trainingInstance.trainingDefinition, trainingDefinition)
-                .where(participantRef.userRefId.eq(userRefId));
-
-        if (predicate != null) {
-            query.where(predicate);
-        }
+        JPQLQuery<TrainingRun> countQuery = buildAccessedTrainingRunsQuery(
+                userRefId, predicate, trainingRun, participantRef, trainingInstance, trainingDefinition, false);
+        JPQLQuery<TrainingRun> contentQuery = buildAccessedTrainingRunsQuery(
+                userRefId, predicate, trainingRun, participantRef, trainingInstance, trainingDefinition, true);
 
         BooleanBuilder actionPredicate = buildPossibleActionPredicate(
                 trainingRun,
@@ -87,10 +99,48 @@ public class TrainingRunRepositoryImpl extends QuerydslRepositorySupport impleme
                 actions
         );
         if (actionPredicate.hasValue()) {
-            query.where(actionPredicate);
+            countQuery.where(actionPredicate);
+            contentQuery.where(actionPredicate);
         }
+        applyTitleSort(contentQuery, trainingInstance, trainingRun, sortByTitle);
 
-        return getPage(query, pageable);
+        return getPage(contentQuery, countQuery, pageable);
+    }
+
+    private JPQLQuery<TrainingRun> buildAccessedTrainingRunsQuery(Long userRefId,
+                                                                  Predicate predicate,
+                                                                  QTrainingRun trainingRun,
+                                                                  QUserRef participantRef,
+                                                                  QTrainingInstance trainingInstance,
+                                                                  QTrainingDefinition trainingDefinition,
+                                                                  boolean fetchJoin) {
+        JPQLQuery<TrainingRun> query = new JPAQueryFactory(entityManager).selectFrom(trainingRun).distinct();
+        if (fetchJoin) {
+            query.leftJoin(trainingRun.participantRef, participantRef).fetchJoin()
+                    .leftJoin(trainingRun.trainingInstance, trainingInstance).fetchJoin()
+                    .leftJoin(trainingInstance.trainingDefinition, trainingDefinition).fetchJoin()
+                    .leftJoin(trainingRun.currentLevel).fetchJoin();
+        } else {
+            query.leftJoin(trainingRun.participantRef, participantRef)
+                    .leftJoin(trainingRun.trainingInstance, trainingInstance)
+                    .leftJoin(trainingInstance.trainingDefinition, trainingDefinition);
+        }
+        query.where(participantRef.userRefId.eq(userRefId));
+        if (predicate != null) {
+            query.where(predicate);
+        }
+        return query;
+    }
+
+    private void applyTitleSort(JPQLQuery<TrainingRun> query,
+                                QTrainingInstance trainingInstance,
+                                QTrainingRun trainingRun,
+                                String sortByTitle) {
+        if ("asc".equals(sortByTitle)) {
+            query.orderBy(trainingInstance.title.asc(), trainingRun.id.asc());
+        } else if ("desc".equals(sortByTitle)) {
+            query.orderBy(trainingInstance.title.desc(), trainingRun.id.desc());
+        }
     }
 
     private BooleanBuilder buildPossibleActionPredicate(QTrainingRun trainingRun,
@@ -125,15 +175,48 @@ public class TrainingRunRepositoryImpl extends QuerydslRepositorySupport impleme
                         .and(noFinishedRunForInstance));
             }
         });
+
+        if (!actions.contains(Actions.RESULTS)
+                && (actions.contains(Actions.RESUME) || actions.contains(Actions.SANDBOX_EXPIRED))) {
+            actionPredicate.and(buildPreferredContinueRunPredicate(trainingRun, trainingInstance, userRefId, now));
+        }
         return actionPredicate;
     }
 
-    private <T> Page getPage(JPQLQuery<T> query, Pageable pageable) {
+    private Predicate buildPreferredContinueRunPredicate(QTrainingRun trainingRun,
+                                                         QTrainingInstance trainingInstance,
+                                                         Long userRefId,
+                                                         LocalDateTime now) {
+        QTrainingRun preferredRun = new QTrainingRun("preferredRun");
+
+        BooleanExpression currentRunIsResumeCandidate = trainingRun.state.ne(TRState.EXPIRED)
+                .and(trainingRun.state.ne(TRState.FINISHED))
+                .and(trainingInstance.endTime.isNull().or(trainingInstance.endTime.after(now)));
+        BooleanExpression preferredRunIsResumeCandidate = preferredRun.state.ne(TRState.EXPIRED)
+                .and(preferredRun.state.ne(TRState.FINISHED))
+                .and(preferredRun.trainingInstance.endTime.isNull().or(preferredRun.trainingInstance.endTime.after(now)));
+        BooleanExpression preferredResumeRunExists = preferredRunIsResumeCandidate
+                .and(trainingRun.state.eq(TRState.EXPIRED)
+                        .or(currentRunIsResumeCandidate.and(preferredRun.id.gt(trainingRun.id))));
+        BooleanExpression newerExpiredRunExists = preferredRun.state.eq(TRState.EXPIRED)
+                .and(trainingRun.state.eq(TRState.EXPIRED))
+                .and(preferredRun.id.gt(trainingRun.id));
+
+        return JPAExpressions.selectOne()
+                .from(preferredRun)
+                .where(preferredRun.participantRef.userRefId.eq(userRefId)
+                        .and(preferredRun.trainingInstance.id.eq(trainingInstance.id))
+                        .and(preferredRun.id.ne(trainingRun.id))
+                        .and(preferredResumeRunExists.or(newerExpiredRunExists)))
+                .notExists();
+    }
+
+    private <T> Page getPage(JPQLQuery<T> contentQuery, JPQLQuery<T> countQuery, Pageable pageable) {
         if (pageable == null) {
             pageable = PageRequest.of(0, 20);
         }
-        query = getQuerydsl().applyPagination(pageable, query);
-        long count = query.fetchCount();
-        return new PageImpl<>(query.fetch(), pageable, count);
+        long count = countQuery.fetchCount();
+        contentQuery = getQuerydsl().applyPagination(pageable, contentQuery);
+        return new PageImpl<>(contentQuery.fetch(), pageable, count);
     }
 }

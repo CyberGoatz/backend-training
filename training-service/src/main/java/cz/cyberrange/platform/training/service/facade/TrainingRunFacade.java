@@ -74,7 +74,6 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -234,8 +233,8 @@ public class TrainingRunFacade {
     @IsTraineeOrAdmin
     @TransactionalRO
     public PageResultResource<AccessedTrainingRunDTO> findAllAccessedTrainingRuns(Predicate predicate, Pageable pageable, String sortByTitle) {
-        Page<TrainingRun> trainingRuns = trainingRunService.findAllByParticipantRefUserRefId(predicate, pageable);
-        return convertToAccessedRunDTO(trainingRuns, sortByTitle);
+        Page<TrainingRun> trainingRuns = trainingRunService.findAllByParticipantRefUserRefId(predicate, pageable, sortByTitle);
+        return convertToAccessedRunDTO(trainingRuns);
     }
 
     /**
@@ -253,8 +252,8 @@ public class TrainingRunFacade {
                                                                                                    Pageable pageable,
                                                                                                    String sortByTitle,
                                                                                                    Collection<Actions> actions) {
-        Page<TrainingRun> trainingRuns = trainingRunService.findAllByParticipantRefUserRefIdAndPossibleActions(predicate, actions, pageable);
-        return convertToAccessedRunDTO(trainingRuns, sortByTitle);
+        Page<TrainingRun> trainingRuns = trainingRunService.findAllByParticipantRefUserRefIdAndPossibleActions(predicate, actions, pageable, sortByTitle);
+        return convertToAccessedRunDTO(trainingRuns);
     }
 
     /**
@@ -727,36 +726,32 @@ public class TrainingRunFacade {
                 trainingRunDTO.setParticipantRef(userService.getUserRefDTOByUserRefId(trainingRunDTO.getParticipantRef().getUserRefId())));
     }
 
-    private PageResultResource<AccessedTrainingRunDTO> convertToAccessedRunDTO(Page<TrainingRun> trainingRuns, String sortByTitle) {
+    private PageResultResource<AccessedTrainingRunDTO> convertToAccessedRunDTO(Page<TrainingRun> trainingRuns) {
+        Map<Long, Integer> maxLevelOrders = getMaxLevelOrders(trainingRuns.getContent());
         List<AccessedTrainingRunDTO> accessedTrainingRunDTOS = new ArrayList<>();
         for (TrainingRun trainingRun : trainingRuns) {
-            AccessedTrainingRunDTO accessedTrainingRunDTO = generateAccessedTrainingRunDTO(trainingRun);
+            AccessedTrainingRunDTO accessedTrainingRunDTO = generateAccessedTrainingRunDTO(trainingRun, maxLevelOrders);
             accessedTrainingRunDTOS.add(accessedTrainingRunDTO);
         }
-        return new PageResultResource<>(sortByTitle(accessedTrainingRunDTOS, sortByTitle), trainingRunMapper.createPagination(trainingRuns));
+        return new PageResultResource<>(accessedTrainingRunDTOS, trainingRunMapper.createPagination(trainingRuns));
     }
 
-    private List<AccessedTrainingRunDTO> sortByTitle(List<AccessedTrainingRunDTO> runs, String sortByTitle) {
-        if (sortByTitle != null && !sortByTitle.isBlank()) {
-            if (!runs.isEmpty()) {
-                if (sortByTitle.equals("asc")) {
-                    runs.sort(Comparator.comparing(AccessedTrainingRunDTO::getTitle));
-                } else if (sortByTitle.equals("desc")) {
-                    runs.sort(Comparator.comparing(AccessedTrainingRunDTO::getTitle).reversed());
-                }
-            }
-        }
-        return runs;
+    private Map<Long, Integer> getMaxLevelOrders(List<TrainingRun> trainingRuns) {
+        Set<Long> definitionIds = trainingRuns.stream()
+                .map(trainingRun -> trainingRun.getTrainingInstance().getTrainingDefinition().getId())
+                .collect(Collectors.toSet());
+        return trainingRunService.getMaxLevelOrders(definitionIds);
     }
 
-    private AccessedTrainingRunDTO generateAccessedTrainingRunDTO(TrainingRun trainingRun) {
+    private AccessedTrainingRunDTO generateAccessedTrainingRunDTO(TrainingRun trainingRun, Map<Long, Integer> maxLevelOrders) {
+        Long definitionId = trainingRun.getTrainingInstance().getTrainingDefinition().getId();
         AccessedTrainingRunDTO accessedTrainingRunDTO = new AccessedTrainingRunDTO();
         accessedTrainingRunDTO.setId(trainingRun.getId());
         accessedTrainingRunDTO.setTitle(trainingRun.getTrainingInstance().getTitle());
         accessedTrainingRunDTO.setTrainingInstanceStartDate(trainingRun.getTrainingInstance().getStartTime());
         accessedTrainingRunDTO.setTrainingInstanceEndDate(trainingRun.getTrainingInstance().getEndTime());
         accessedTrainingRunDTO.setInstanceId(trainingRun.getTrainingInstance().getId());
-        accessedTrainingRunDTO.setNumberOfLevels(trainingRunService.getMaxLevelOrder(trainingRun.getTrainingInstance().getTrainingDefinition().getId()) + 1);
+        accessedTrainingRunDTO.setNumberOfLevels(maxLevelOrders.getOrDefault(definitionId, -1) + 1);
         accessedTrainingRunDTO.setCurrentLevelOrder(trainingRun.getCurrentLevel().getOrder() + 1);
         accessedTrainingRunDTO.setPossibleAction(resolvePossibleActions(accessedTrainingRunDTO, trainingRun.getState()));
         return accessedTrainingRunDTO;
