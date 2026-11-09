@@ -34,6 +34,7 @@ import cz.cyberrange.platform.training.service.annotations.transactions.Transact
 import cz.cyberrange.platform.training.service.services.api.AnswersStorageApiService;
 import cz.cyberrange.platform.training.service.services.api.ElasticsearchApiService;
 import cz.cyberrange.platform.training.service.services.api.SandboxApiService;
+import cz.cyberrange.platform.training.service.tenancy.TenantScope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -82,6 +83,7 @@ public class TrainingRunService {
     private final SandboxApiService sandboxApiService;
     private final SubmissionRepository submissionRepository;
     private final TrainingLevelResultRepository trainingLevelResultRepository;
+    private TenantScope tenantScope = new TenantScope();
 
     /**
      * Instantiates a new Training run service.
@@ -125,6 +127,11 @@ public class TrainingRunService {
         this.trAcquisitionLockRepository = trAcquisitionLockRepository;
         this.submissionRepository = submissionRepository;
         this.trainingLevelResultRepository = trainingLevelResultRepository;
+    }
+
+    @Autowired
+    public void setTenantScope(TenantScope tenantScope) {
+        this.tenantScope = tenantScope;
     }
 
     /**
@@ -464,6 +471,7 @@ public class TrainingRunService {
      */
     public TrainingInstance getTrainingInstanceForParticularAccessToken(String accessToken) {
         TrainingInstance trainingInstance = trainingInstanceRepository.findByStartTimeAfterAndEndTimeBeforeAndAccessToken(LocalDateTime.now(Clock.systemUTC()), accessToken)
+                .filter(instance -> tenantScope.isVisible(instance.getTenantKey()))
                 .orElseThrow(() -> new EntityNotFoundException(new EntityErrorDetail(TrainingInstance.class, "accessToken", accessToken.getClass(), accessToken,
                         "There is no active training session matching access token.")));
         if (!trainingInstance.isLocalEnvironment() && trainingInstance.getPoolId() == null) {

@@ -18,6 +18,7 @@ import cz.cyberrange.platform.training.service.mapping.mapstruct.CloneMapper;
 import cz.cyberrange.platform.training.service.startup.DefaultLevelsLoader;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.exception.ConstraintViolationException;
+import cz.cyberrange.platform.training.service.tenancy.TenantScope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +58,7 @@ public class TrainingDefinitionService {
     private SecurityService securityService;
     private UserService userService;
     private DefaultLevelsLoader defaultLevelsLoader;
+    private TenantScope tenantScope = new TenantScope();
 
     private static final String ARCHIVED_OR_RELEASED = "Cannot edit released or archived training definition.";
     private static final String LEVEL_NOT_FOUND = "Level not found.";
@@ -103,6 +105,11 @@ public class TrainingDefinitionService {
         this.cloneMapper = cloneMapper;
     }
 
+    @Autowired
+    public void setTenantScope(TenantScope tenantScope) {
+        this.tenantScope = tenantScope;
+    }
+
     /**
      * Finds specific Training Definition by id
      *
@@ -111,8 +118,10 @@ public class TrainingDefinitionService {
      * @throws EntityNotFoundException training definition cannot be found
      */
     public TrainingDefinition findById(Long id) {
-        return trainingDefinitionRepository.findById(id)
+        TrainingDefinition trainingDefinition = trainingDefinitionRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException(new EntityErrorDetail(TrainingDefinition.class, "id", Long.class, id)));
+        tenantScope.checkReadable(trainingDefinition.getTenantKey(), TrainingDefinition.class, id);
+        return trainingDefinition;
     }
 
     /**
@@ -123,7 +132,7 @@ public class TrainingDefinitionService {
      * @return all {@link TrainingDefinition}s
      */
     public Page<TrainingDefinition> findAll(Predicate predicate, Pageable pageable) {
-        return trainingDefinitionRepository.findAll(predicate, pageable);
+        return tenantScope.filtered(() -> trainingDefinitionRepository.findAll(predicate, pageable));
     }
 
     /**
@@ -135,7 +144,7 @@ public class TrainingDefinitionService {
      * @return the page
      */
     public Page<TrainingDefinition> findAll(Predicate predicate, Pageable pageable, Long loggedInUserId) {
-        return trainingDefinitionRepository.findAll(predicate, pageable, loggedInUserId);
+        return tenantScope.filtered(() -> trainingDefinitionRepository.findAll(predicate, pageable, loggedInUserId));
     }
 
     /**
@@ -146,7 +155,7 @@ public class TrainingDefinitionService {
      * @return all Training Definitions for organizers
      */
     public Page<TrainingDefinition> findAllByState(TDState state, Pageable pageable) {
-        return trainingDefinitionRepository.findAllByState(state, pageable);
+        return tenantScope.filtered(() -> trainingDefinitionRepository.findAllByState(state, pageable));
     }
 
     /**
@@ -157,7 +166,7 @@ public class TrainingDefinitionService {
      * @return the page
      */
     public Page<TrainingDefinition> findAllForDesignersAndOrganizersUnreleased(Long loggedInUserId, Pageable pageable) {
-        return trainingDefinitionRepository.findAllForDesignersAndOrganizersUnreleased(loggedInUserId, pageable);
+        return tenantScope.filtered(() -> trainingDefinitionRepository.findAllForDesignersAndOrganizersUnreleased(loggedInUserId, pageable));
     }
 
     /**
@@ -168,7 +177,7 @@ public class TrainingDefinitionService {
      * @return the page
      */
     public Page<TrainingDefinition> findAllForOrganizersUnreleased(Long loggedInUserId, Pageable pageable) {
-        return trainingDefinitionRepository.findAllForOrganizersUnreleased(loggedInUserId, pageable);
+        return tenantScope.filtered(() -> trainingDefinitionRepository.findAllForOrganizersUnreleased(loggedInUserId, pageable));
     }
 
     /**
@@ -188,6 +197,7 @@ public class TrainingDefinitionService {
      * @return new {@link TrainingDefinition}
      */
     public TrainingDefinition create(TrainingDefinition trainingDefinition, boolean createDefaultContent) {
+        trainingDefinition.setTenantKey(tenantScope.tenantForNewRow(trainingDefinition.getTenantKey()));
         addLoggedInUserToTrainingDefinitionAsAuthor(trainingDefinition);
         trainingDefinition.setCreatedAt(getCurrentTimeInUTC());
         if(createDefaultContent) {
@@ -207,6 +217,7 @@ public class TrainingDefinitionService {
     public void update(TrainingDefinition trainingDefinitionToUpdate) {
         TrainingDefinition trainingDefinition = findById(trainingDefinitionToUpdate.getId());
         checkIfCanBeUpdated(trainingDefinition);
+        trainingDefinitionToUpdate.setTenantKey(trainingDefinition.getTenantKey());
         addLoggedInUserToTrainingDefinitionAsAuthor(trainingDefinitionToUpdate);
         trainingDefinitionToUpdate.setEstimatedDuration(trainingDefinition.getEstimatedDuration());
         auditAndSave(trainingDefinitionToUpdate);
@@ -226,6 +237,7 @@ public class TrainingDefinitionService {
         TrainingDefinition trainingDefinition = findById(id);
         TrainingDefinition clonedTrainingDefinition = cloneMapper.clone(trainingDefinition);
         clonedTrainingDefinition.setTitle(title);
+        clonedTrainingDefinition.setTenantKey(tenantScope.tenantForNewRow(null));
         addLoggedInUserToTrainingDefinitionAsAuthor(clonedTrainingDefinition);
         clonedTrainingDefinition = auditAndSave(clonedTrainingDefinition);
         cloneLevelsFromTrainingDefinition(trainingDefinition.getId(), clonedTrainingDefinition);
@@ -294,6 +306,7 @@ public class TrainingDefinitionService {
      */
     public void delete(Long definitionId) {
         TrainingDefinition definition = findById(definitionId);
+        tenantScope.checkWritable(definition.getTenantKey(), TrainingDefinition.class, definitionId);
         if (definition.getState().equals(TDState.RELEASED))
             throw new EntityConflictException(new EntityErrorDetail(TrainingDefinition.class, "id", definitionId.getClass(), definitionId,
                     "Cannot delete released training definition."));
@@ -317,6 +330,7 @@ public class TrainingDefinitionService {
      */
     public void deleteOneLevel(Long definitionId, Long levelId) {
         TrainingDefinition trainingDefinition = findById(definitionId);
+        tenantScope.checkWritable(trainingDefinition.getTenantKey(), TrainingDefinition.class, definitionId);
         if (!trainingDefinition.getState().equals(TDState.UNRELEASED))
             throw new EntityConflictException(new EntityErrorDetail(AbstractLevel.class, "id", levelId.getClass(), levelId, ARCHIVED_OR_RELEASED));
         // TODO use method findLevelById instead
@@ -603,8 +617,12 @@ public class TrainingDefinitionService {
      * @throws EntityNotFoundException level is not found.
      */
     public AbstractLevel findLevelById(Long levelId) {
-        return abstractLevelRepository.findByIdIncludingDefinition(levelId)
+        AbstractLevel level = abstractLevelRepository.findByIdIncludingDefinition(levelId)
                 .orElseThrow(() -> new EntityNotFoundException(new EntityErrorDetail(AbstractLevel.class, "id", levelId.getClass(), levelId, LEVEL_NOT_FOUND)));
+        if (level.getTrainingDefinition() != null) {
+            tenantScope.checkReadable(level.getTrainingDefinition().getTenantKey(), AbstractLevel.class, levelId);
+        }
+        return level;
     }
 
     /**
@@ -626,7 +644,7 @@ public class TrainingDefinitionService {
      * @return the list of all {@link TrainingInstance}s associated with wanted {@link TrainingDefinition}
      */
     public List<TrainingInstance> findAllTrainingInstancesByTrainingDefinitionId(Long id) {
-        return trainingInstanceRepository.findAllByTrainingDefinitionId(id);
+        return tenantScope.filtered(() -> trainingInstanceRepository.findAllByTrainingDefinitionId(id));
     }
 
     /**
@@ -637,6 +655,7 @@ public class TrainingDefinitionService {
      */
     public void switchState(Long definitionId, cz.cyberrange.platform.training.api.enums.TDState state) {
         TrainingDefinition trainingDefinition = findById(definitionId);
+        tenantScope.checkWritable(trainingDefinition.getTenantKey(), TrainingDefinition.class, definitionId);
         if (trainingDefinition.getState().name().equals(state.name())) {
             return;
         }
@@ -686,9 +705,7 @@ public class TrainingDefinitionService {
      * @return true if at least one of the training levels has reference solution defined, false otherwise.
      */
     public boolean hasReferenceSolution(Long trainingDefinitionId) {
-        if (!trainingDefinitionRepository.existsById(trainingDefinitionId)) {
-            throw new EntityNotFoundException(new EntityErrorDetail(TrainingDefinition.class, "id", Long.class, trainingDefinitionId));
-        }
+        findById(trainingDefinitionId);
         return this.trainingLevelRepository.hasReferenceSolution(trainingDefinitionId);
     }
 
@@ -828,6 +845,7 @@ public class TrainingDefinitionService {
     }
 
     public void checkIfCanBeUpdated(TrainingDefinition trainingDefinition) {
+        tenantScope.checkWritable(trainingDefinition.getTenantKey(), TrainingDefinition.class, trainingDefinition.getId());
         if (!trainingDefinition.getState().equals(TDState.UNRELEASED)) {
             throw new EntityConflictException(new EntityErrorDetail(TrainingDefinition.class, "id", trainingDefinition.getId().getClass(), trainingDefinition.getId(),
                     ARCHIVED_OR_RELEASED));

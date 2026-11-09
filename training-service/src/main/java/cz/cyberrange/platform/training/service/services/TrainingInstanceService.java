@@ -2,6 +2,8 @@ package cz.cyberrange.platform.training.service.services;
 
 import com.querydsl.core.types.Predicate;
 import cz.cyberrange.platform.training.api.exceptions.EntityConflictException;
+import cz.cyberrange.platform.training.persistence.model.TrainingDefinition;
+import cz.cyberrange.platform.training.persistence.model.enums.TDState;
 import cz.cyberrange.platform.training.api.exceptions.EntityErrorDetail;
 import cz.cyberrange.platform.training.api.exceptions.EntityNotFoundException;
 import cz.cyberrange.platform.training.persistence.model.TrainingInstance;
@@ -11,6 +13,8 @@ import cz.cyberrange.platform.training.persistence.repository.TrainingInstanceRe
 import cz.cyberrange.platform.training.persistence.repository.TrainingRunRepository;
 import cz.cyberrange.platform.training.persistence.repository.UserRefRepository;
 import org.apache.commons.lang3.RandomStringUtils;
+import cz.cyberrange.platform.training.service.enrollment.AccessTokens;
+import cz.cyberrange.platform.training.service.tenancy.TenantScope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +46,7 @@ public class TrainingInstanceService {
     private UserRefRepository userRefRepository;
     private SecurityService securityService;
     private UserService userService;
+    private TenantScope tenantScope = new TenantScope();
 
     /**
      * Instantiates a new Training instance service.
@@ -65,6 +70,11 @@ public class TrainingInstanceService {
         this.userService = userService;
     }
 
+    @Autowired
+    public void setTenantScope(TenantScope tenantScope) {
+        this.tenantScope = tenantScope;
+    }
+
     /**
      * Finds basic info about Training Instance by id
      *
@@ -73,8 +83,10 @@ public class TrainingInstanceService {
      * @throws EntityNotFoundException training instance is not found.
      */
     public TrainingInstance findById(Long instanceId) {
-        return trainingInstanceRepository.findById(instanceId)
+        TrainingInstance trainingInstance = trainingInstanceRepository.findById(instanceId)
                 .orElseThrow(() -> new EntityNotFoundException(new EntityErrorDetail(TrainingInstance.class, "id", instanceId.getClass(), instanceId)));
+        tenantScope.checkReadable(trainingInstance.getTenantKey(), TrainingInstance.class, instanceId);
+        return trainingInstance;
     }
 
     /**
@@ -84,8 +96,10 @@ public class TrainingInstanceService {
      * @return the {@link TrainingInstance}
      */
     public TrainingInstance findByIdIncludingDefinition(Long instanceId) {
-        return trainingInstanceRepository.findByIdIncludingDefinition(instanceId)
+        TrainingInstance trainingInstance = trainingInstanceRepository.findByIdIncludingDefinition(instanceId)
                 .orElseThrow(() -> new EntityNotFoundException(new EntityErrorDetail(TrainingInstance.class, "id", instanceId.getClass(), instanceId)));
+        tenantScope.checkReadable(trainingInstance.getTenantKey(), TrainingInstance.class, instanceId);
+        return trainingInstance;
     }
 
     /**
@@ -95,7 +109,8 @@ public class TrainingInstanceService {
      * @return the access token
      */
     public String findInstanceAccessTokenByPoolId(Long poolId) {
-        Optional<TrainingInstance> instance = trainingInstanceRepository.findByPoolId(poolId);
+        Optional<TrainingInstance> instance = trainingInstanceRepository.findByPoolId(poolId)
+                .filter(trainingInstance -> tenantScope.isVisible(trainingInstance.getTenantKey()));
         return instance.map(TrainingInstance::getAccessToken).orElse(null);
     }
 
@@ -107,7 +122,7 @@ public class TrainingInstanceService {
      * @return all {@link TrainingInstance}s
      */
     public Page<TrainingInstance> findAll(Predicate predicate, Pageable pageable) {
-        return trainingInstanceRepository.findAll(predicate, pageable);
+        return tenantScope.filtered(() -> trainingInstanceRepository.findAll(predicate, pageable));
     }
 
     /**
@@ -119,7 +134,7 @@ public class TrainingInstanceService {
      * @return the page
      */
     public Page<TrainingInstance> findAll(Predicate predicate, Pageable pageable, Long loggedInUserId) {
-        return trainingInstanceRepository.findAll(predicate, pageable, loggedInUserId);
+        return tenantScope.filtered(() -> trainingInstanceRepository.findAll(predicate, pageable, loggedInUserId));
     }
 
     /**
@@ -129,7 +144,7 @@ public class TrainingInstanceService {
      * @return the page
      */
     public List<TrainingInstance> findAllByIds(List<Long> ids) {
-        return trainingInstanceRepository.findAllById(ids);
+        return tenantScope.filtered(() -> trainingInstanceRepository.findAllById(ids));
     }
 
     /**
@@ -139,7 +154,9 @@ public class TrainingInstanceService {
      * @return created {@link TrainingInstance}
      */
     public TrainingInstance create(TrainingInstance trainingInstance) {
-        trainingInstance.setAccessToken(generateAccessToken(trainingInstance.getAccessToken().trim()));
+        trainingInstance.setTenantKey(tenantScope.tenantForNewRow(trainingInstance.getTenantKey()));
+        checkDefinitionUsableByTenant(trainingInstance);
+        trainingInstance.setAccessToken(generateAccessToken(trainingInstance.getAccessToken().trim(), trainingInstance.getAllowedGroupId() != null));
         setDefaultSandboxDuration(trainingInstance);
         validateStartAndEndTime(trainingInstance);
         addLoggedInUserAsOrganizerToTrainingInstance(trainingInstance);
@@ -158,6 +175,9 @@ public class TrainingInstanceService {
         setDefaultSandboxDuration(trainingInstanceToUpdate);
         validateStartAndEndTime(trainingInstanceToUpdate);
         TrainingInstance trainingInstance = findById(trainingInstanceToUpdate.getId());
+        tenantScope.checkWritable(trainingInstance.getTenantKey(), TrainingInstance.class, trainingInstance.getId());
+        trainingInstanceToUpdate.setTenantKey(trainingInstance.getTenantKey());
+        checkDefinitionUsableByTenant(trainingInstanceToUpdate);
         checkNotRevivingAnExpiredInstance(trainingInstanceToUpdate, trainingInstance);
         //add original organizers to update
         trainingInstanceToUpdate.setOrganizers(new HashSet<>(trainingInstance.getOrganizers()));
@@ -166,7 +186,8 @@ public class TrainingInstanceService {
         if (trainingInstance.notStarted()) {
             //check if access token has changed and new should be generated, if not original is kept
             if (isAccessTokenChanged(trainingInstance.getAccessToken(), trainingInstanceToUpdate.getAccessToken())) {
-                trainingInstanceToUpdate.setAccessToken(generateAccessToken(trainingInstanceToUpdate.getAccessToken()));
+                trainingInstanceToUpdate.setAccessToken(generateAccessToken(trainingInstanceToUpdate.getAccessToken(),
+                        trainingInstanceToUpdate.getAllowedGroupId() != null));
             } else {
                 trainingInstanceToUpdate.setAccessToken(trainingInstance.getAccessToken());
             }
@@ -175,6 +196,21 @@ public class TrainingInstanceService {
             trainingInstanceToUpdate.setAccessToken(trainingInstance.getAccessToken());
         }
         return auditAndSave(trainingInstanceToUpdate).getAccessToken();
+    }
+
+    /**
+     * Tenant users may build instances on the global library only from released definitions.
+     */
+    private void checkDefinitionUsableByTenant(TrainingInstance trainingInstance) {
+        TrainingDefinition definition = trainingInstance.getTrainingDefinition();
+        if (definition == null || tenantScope.currentTenant() == null) {
+            return;
+        }
+        tenantScope.checkReadable(definition.getTenantKey(), TrainingDefinition.class, definition.getId());
+        if (definition.getTenantKey() == null && definition.getState() != TDState.RELEASED) {
+            throw new EntityConflictException(new EntityErrorDetail(TrainingDefinition.class, "id", Long.class, definition.getId(),
+                    "Only released training definitions of the global library can be used to create a training instance."));
+        }
     }
 
     private void validateStartAndEndTime(TrainingInstance trainingInstance) {
@@ -216,18 +252,21 @@ public class TrainingInstanceService {
     }
 
     private boolean isAccessTokenChanged(String originalToken, String newToken) {
-        //new token should not be generated if token in update equals original token without PIN
-        String originalTokenWithoutPin = originalToken.substring(0, originalToken.length() - 5);
-        return !newToken.equals(originalTokenWithoutPin);
+        //new token should not be generated if token in update equals original token without PIN (or strong suffix)
+        return !newToken.equals(AccessTokens.prefixOf(originalToken));
     }
 
-    private String generateAccessToken(String accessToken) {
+    private String generateAccessToken(String accessToken, boolean strong) {
         Random rand = new Random();
         String newPass;
         do {
-            int firstNumber = rand.nextInt(5);
-            String pin = firstNumber + RandomStringUtils.random(3, false, true);
-            newPass = accessToken + "-" + pin;
+            if (strong) {
+                newPass = AccessTokens.strongToken(accessToken);
+            } else {
+                int firstNumber = rand.nextInt(5);
+                String pin = firstNumber + RandomStringUtils.random(3, false, true);
+                newPass = accessToken + "-" + pin;
+            }
         } while (trainingInstanceRepository.existsForToken(newPass));
         return newPass;
     }
@@ -245,6 +284,7 @@ public class TrainingInstanceService {
      * @throws EntityConflictException cannot be deleted for some reason.
      */
     public void delete(TrainingInstance trainingInstance) {
+        tenantScope.checkWritable(trainingInstance.getTenantKey(), TrainingInstance.class, trainingInstance.getId());
         trainingInstanceRepository.delete(trainingInstance);
         LOG.debug("Training instance with id: {} deleted.", trainingInstance.getId());
     }
@@ -323,6 +363,7 @@ public class TrainingInstanceService {
      */
     public TrainingInstance findByStartTimeAfterAndEndTimeBeforeAndAccessToken(String accessToken) {
         return trainingInstanceRepository.findByStartTimeAfterAndEndTimeBeforeAndAccessToken(LocalDateTime.now(Clock.systemUTC()), accessToken)
+                .filter(trainingInstance -> tenantScope.isVisible(trainingInstance.getTenantKey()))
                 .orElseThrow(() -> new EntityNotFoundException(new EntityErrorDetail(TrainingInstance.class, "accessToken", accessToken.getClass(), accessToken,
                         "There is no active training session matching access token.")));
     }
@@ -358,6 +399,7 @@ public class TrainingInstanceService {
      * @param trainingInstance the training instance to be saved.
      */
     public TrainingInstance auditAndSave(TrainingInstance trainingInstance) {
+        tenantScope.checkWritable(trainingInstance.getTenantKey(), TrainingInstance.class, trainingInstance.getId());
         trainingInstance.setLastEdited(getCurrentTimeInUTC());
         trainingInstance.setLastEditedBy(userService.getUserRefFromUserAndGroup().getUserRefFullName());
         return trainingInstanceRepository.save(trainingInstance);

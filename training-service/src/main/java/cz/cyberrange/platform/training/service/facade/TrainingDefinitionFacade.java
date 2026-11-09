@@ -52,6 +52,7 @@ import cz.cyberrange.platform.training.service.services.SecurityService;
 import cz.cyberrange.platform.training.service.services.TrainingDefinitionService;
 import cz.cyberrange.platform.training.service.services.UserService;
 import cz.cyberrange.platform.training.service.services.api.TrainingFeedbackApiService;
+import cz.cyberrange.platform.training.service.tenancy.TenantScope;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -84,6 +85,7 @@ public class TrainingDefinitionFacade {
     private final SecurityService securityService;
     private final TrainingDefinitionMapper trainingDefinitionMapper;
     private final LevelMapper levelMapper;
+    private TenantScope tenantScope = new TenantScope();
 
     /**
      * Instantiates a new Training definition facade.
@@ -107,6 +109,11 @@ public class TrainingDefinitionFacade {
         this.securityService = securityService;
         this.trainingDefinitionMapper = trainingDefMapper;
         this.levelMapper = levelMapper;
+    }
+
+    @Autowired
+    public void setTenantScope(TenantScope tenantScope) {
+        this.tenantScope = tenantScope;
     }
 
     /**
@@ -648,6 +655,7 @@ public class TrainingDefinitionFacade {
     @TransactionalWO
     public void editAuthors(Long trainingDefinitionId, Set<Long> authorsAddition, Set<Long> authorsRemoval) {
         TrainingDefinition trainingDefinition = trainingDefinitionService.findById(trainingDefinitionId);
+        tenantScope.checkWritable(trainingDefinition.getTenantKey(), TrainingDefinition.class, trainingDefinitionId);
         Long loggedInUserRefId = securityService.getUserRefIdFromUserAndGroup();
         if (authorsRemoval != null && !authorsRemoval.isEmpty()) {
             authorsRemoval.remove(loggedInUserRefId);

@@ -13,6 +13,7 @@ import cz.cyberrange.platform.training.persistence.repository.TrainingInstanceRe
 import cz.cyberrange.platform.training.persistence.repository.TrainingRunRepository;
 import cz.cyberrange.platform.training.service.annotations.transactions.TransactionalRO;
 import cz.cyberrange.platform.training.service.enums.RoleTypeSecurity;
+import cz.cyberrange.platform.training.service.tenancy.TenantScope;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.core.GrantedAuthority;
@@ -36,6 +37,7 @@ public class SecurityService {
     private final TrainingDefinitionRepository trainingDefinitionRepository;
     private final TrainingInstanceRepository trainingInstanceRepository;
     private final WebClient userManagementWebClient;
+    private TenantScope tenantScope = new TenantScope();
 
     /**
      * Instantiates a new Security service.
@@ -56,6 +58,11 @@ public class SecurityService {
         this.userManagementWebClient = userManagementWebClient;
     }
 
+    @Autowired
+    public void setTenantScope(TenantScope tenantScope) {
+        this.tenantScope = tenantScope;
+    }
+
     /**
      * Is trainee of given training run boolean.
      *
@@ -66,6 +73,7 @@ public class SecurityService {
         TrainingRun trainingRun = trainingRunRepository.findById(trainingRunId)
                 .orElseThrow(() -> new EntityNotFoundException(new EntityErrorDetail(TrainingRun.class, "id", trainingRunId.getClass(),
                         trainingRunId, "The necessary permissions are required for a resource.")));
+        tenantScope.checkReadable(trainingRun.getTrainingInstance().getTenantKey(), TrainingRun.class, trainingRunId);
         return trainingRun.getParticipantRef().getUserRefId().equals(getUserRefIdFromUserAndGroup());
     }
 
@@ -79,6 +87,7 @@ public class SecurityService {
         TrainingInstance trainingInstance = trainingInstanceRepository.findById(instanceId)
                 .orElseThrow(() -> new EntityNotFoundException(new EntityErrorDetail(TrainingInstance.class, "id", instanceId.getClass(),
                         instanceId, "The necessary permissions are required for a resource.")));
+        tenantScope.checkReadable(trainingInstance.getTenantKey(), TrainingInstance.class, instanceId);
         return isOrganizerOfGivenInstance(trainingInstance);
     }
 
@@ -92,6 +101,7 @@ public class SecurityService {
         TrainingRun trainingRun = trainingRunRepository.findById(trainingRunId)
                 .orElseThrow(() -> new EntityNotFoundException(new EntityErrorDetail(TrainingRun.class, "id", trainingRunId.getClass(),
                         trainingRunId, "The necessary permissions are required for a resource.")));
+        tenantScope.checkReadable(trainingRun.getTrainingInstance().getTenantKey(), TrainingRun.class, trainingRunId);
         return trainingRun.getTrainingInstance().getOrganizers().stream()
                 .anyMatch(o -> o.getUserRefId().equals(getUserRefIdFromUserAndGroup()));
     }
@@ -106,6 +116,7 @@ public class SecurityService {
         TrainingDefinition trainingDefinition = trainingDefinitionRepository.findById(definitionId)
                 .orElseThrow(() -> new EntityNotFoundException(new EntityErrorDetail(TrainingDefinition.class,
                         "id", definitionId.getClass(), definitionId, "The necessary permissions are required for a resource.")));
+        tenantScope.checkReadable(trainingDefinition.getTenantKey(), TrainingDefinition.class, definitionId);
         return trainingDefinition.getAuthors().stream()
                 .anyMatch(a -> a.getUserRefId().equals(getUserRefIdFromUserAndGroup()));
     }
@@ -116,6 +127,8 @@ public class SecurityService {
      * @return the boolean
      */
     public boolean isOrganizerForGivenTrainingDefinition(Long definitionId) {
+        trainingDefinitionRepository.findById(definitionId)
+                .ifPresent(definition -> tenantScope.checkReadable(definition.getTenantKey(), TrainingDefinition.class, definitionId));
         List<TrainingInstance> instances = trainingInstanceRepository.findAllByTrainingDefinitionId(definitionId);
         for (TrainingInstance trainingInstance : instances) {
             if (isOrganizerOfGivenInstance(trainingInstance)) {

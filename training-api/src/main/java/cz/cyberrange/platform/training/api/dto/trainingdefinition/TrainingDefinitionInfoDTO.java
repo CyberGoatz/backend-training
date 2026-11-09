@@ -24,4 +24,6 @@ public class TrainingDefinitionInfoDTO {
     private String title;
     @ApiModelProperty(value = "Current state of training definition.", example = "UNRELEASED")
     private TDState state;
+    @ApiModelProperty(value = "Tenant (organization alias) that owns this row; null for the global library. Read-only.", example = "vit")
+    private String tenantKey;
 }

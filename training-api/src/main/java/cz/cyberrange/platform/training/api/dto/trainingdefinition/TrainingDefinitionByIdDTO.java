@@ -56,4 +56,6 @@ public class TrainingDefinitionByIdDTO {
     @ApiModelProperty(value = "Time of creation of definition.", example = "2017-10-19 10:23:54+02")
     @JsonSerialize(using = LocalDateTimeUTCSerializer.class)
     private LocalDateTime createdAt;
+    @ApiModelProperty(value = "Tenant (organization alias) that owns this row; null for the global library. Read-only.", example = "vit")
+    private String tenantKey;
 }
