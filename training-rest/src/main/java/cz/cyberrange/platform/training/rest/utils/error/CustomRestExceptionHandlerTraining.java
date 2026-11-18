@@ -8,6 +8,7 @@ import cz.cyberrange.platform.training.api.exceptions.InternalServerErrorExcepti
 import cz.cyberrange.platform.training.api.exceptions.MicroserviceApiException;
 import cz.cyberrange.platform.training.api.exceptions.TooManyRequestsException;
 import cz.cyberrange.platform.training.api.exceptions.UnprocessableEntityException;
+import cz.cyberrange.platform.training.service.enrollment.NotEnrolledException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
@@ -212,6 +213,9 @@ public class CustomRestExceptionHandlerTraining extends ResponseEntityExceptionH
                 getInitialException(ex).getLocalizedMessage(),
                 getErrorMessage(ex),
                 URL_PATH_HELPER.getRequestUri(req));
+        if (ex instanceof NotEnrolledException) {
+            apiError.setCode(((NotEnrolledException) ex).getCode());
+        }
         return new ResponseEntity<>(apiError, new HttpHeaders(), apiError.getStatus());
     }
 

@@ -30,6 +30,8 @@ public class ApiError {
     private List<String> errors;
     @ApiModelProperty(value = "The requested URI path which caused error.", example = "/user-and-group/api/v1/groups/1000 (different for each type of exception).")
     private String path;
+    @ApiModelProperty(value = "Machine-readable error code, present only for errors that define one.", example = "NOT_ENROLLED")
+    private String code;
 
     protected ApiError() {}
 
@@ -99,6 +101,14 @@ public class ApiError {
      *
      * @return the timestamp
      */
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
     public long getTimestamp() {
         return timestamp;
     }

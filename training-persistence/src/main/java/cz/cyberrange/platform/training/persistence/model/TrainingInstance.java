@@ -1,5 +1,7 @@
 package cz.cyberrange.platform.training.persistence.model;
 
+import org.hibernate.annotations.Filter;
+
 import javax.persistence.*;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -15,6 +17,7 @@ import java.util.Set;
  */
 @Entity
 @Table(name = "training_instance")
+@Filter(name = TenantFilter.NAME, condition = TenantFilter.CONDITION)
 @NamedEntityGraphs({
         @NamedEntityGraph(
                 name = "TrainingInstance.findAllAuthorsOrganizersBetaTestingGroupBetaTestingGroupOrganizers",
@@ -113,6 +116,10 @@ public class TrainingInstance extends AbstractEntity<Long> {
     private boolean showStepperBar;
     @Column(name = "backward_mode", nullable = false)
     private boolean backwardMode;
+    @Column(name = "tenant_key", length = 40, updatable = false)
+    private String tenantKey;
+    @Column(name = "allowed_group_id")
+    private Long allowedGroupId;
 
     /**
      * Gets unique identification number of Training instance
@@ -401,6 +408,28 @@ public class TrainingInstance extends AbstractEntity<Long> {
      */
     public void setBackwardMode(boolean backwardMode) {
         this.backwardMode = backwardMode;
+    }
+
+    /**
+     * Tenant (organization alias) that owns the instance, or null for instances outside any tenant.
+     */
+    public String getTenantKey() {
+        return tenantKey;
+    }
+
+    public void setTenantKey(String tenantKey) {
+        this.tenantKey = tenantKey;
+    }
+
+    /**
+     * UAG group whose members may start a training run, or null when anyone holding the access token may.
+     */
+    public Long getAllowedGroupId() {
+        return allowedGroupId;
+    }
+
+    public void setAllowedGroupId(Long allowedGroupId) {
+        this.allowedGroupId = allowedGroupId;
     }
 
     public boolean running() {

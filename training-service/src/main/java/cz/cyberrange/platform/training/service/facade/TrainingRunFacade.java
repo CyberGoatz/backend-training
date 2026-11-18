@@ -40,6 +40,7 @@ import cz.cyberrange.platform.training.persistence.model.TrainingLevel;
 import cz.cyberrange.platform.training.persistence.model.TrainingRun;
 import cz.cyberrange.platform.training.persistence.model.enums.TRState;
 import cz.cyberrange.platform.training.persistence.model.question.QuestionAnswer;
+import cz.cyberrange.platform.training.service.enrollment.EnrollmentService;
 import cz.cyberrange.platform.training.service.annotations.security.IsOrganizerOrAdmin;
 import cz.cyberrange.platform.training.service.annotations.security.IsTrainee;
 import cz.cyberrange.platform.training.service.annotations.security.IsTraineeOrAdmin;
@@ -106,6 +107,8 @@ public class TrainingRunFacade {
     private final TrainingRunMapper trainingRunMapper;
     private final LevelMapper levelMapper;
     private final HintMapper hintMapper;
+    // denies restricted instances until the real service is injected
+    private EnrollmentService enrollmentService = new EnrollmentService((groupId, userRefId) -> false);
 
 
     /**
@@ -139,6 +142,11 @@ public class TrainingRunFacade {
         this.trainingFeedbackApiService = trainingFeedbackApiService;
         this.levelMapper = levelMapper;
         this.hintMapper = hintMapper;
+    }
+
+    @Autowired
+    public void setEnrollmentService(EnrollmentService enrollmentService) {
+        this.enrollmentService = enrollmentService;
     }
 
     /**
@@ -340,6 +348,7 @@ public class TrainingRunFacade {
         TrainingInstance trainingInstance = trainingRunService.getTrainingInstanceForParticularAccessToken(accessToken);
         // checking if the user is not accessing to his existing training run (resume action)
         Long participantRefId = securityService.getUserRefIdFromUserAndGroup();
+        enrollmentService.checkEnrolled(trainingInstance, participantRefId);
         Optional<TrainingRun> accessedTrainingRun = trainingRunService.findRunningTrainingRunOfUser(accessToken, participantRefId);
         if (accessedTrainingRun.isPresent()) {
             TrainingRun trainingRun = trainingRunService.resumeTrainingRun(accessedTrainingRun.get().getId());

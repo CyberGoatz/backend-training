@@ -2,6 +2,10 @@ package cz.cyberrange.platform.training.persistence.model;
 
 import cz.cyberrange.platform.training.persistence.model.enums.TDState;
 
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
+
 import javax.persistence.*;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -16,6 +20,8 @@ import java.util.Set;
  */
 @Entity
 @Table(name = "training_definition")
+@FilterDef(name = TenantFilter.NAME, parameters = @ParamDef(name = TenantFilter.PARAM, type = "string"))
+@Filter(name = TenantFilter.NAME, condition = TenantFilter.CONDITION)
 @NamedEntityGraphs({
         @NamedEntityGraph(
                 name = "TrainingDefinition.findAllAuthorsBetaTestingGroupOrganizers",
@@ -87,6 +93,8 @@ public class TrainingDefinition extends AbstractEntity<Long> {
     private String lastEditedBy;
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+    @Column(name = "tenant_key", length = 40, updatable = false)
+    private String tenantKey;
 
     /**
      * Gets unique identification number of Training definition
@@ -323,6 +331,17 @@ public class TrainingDefinition extends AbstractEntity<Long> {
      */
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    /**
+     * Tenant (organization alias) that owns the definition, or null for the global library.
+     */
+    public String getTenantKey() {
+        return tenantKey;
+    }
+
+    public void setTenantKey(String tenantKey) {
+        this.tenantKey = tenantKey;
     }
 
     @Override

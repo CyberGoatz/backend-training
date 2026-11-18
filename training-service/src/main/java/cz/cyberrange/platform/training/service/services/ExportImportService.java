@@ -13,6 +13,7 @@ import cz.cyberrange.platform.training.persistence.model.TrainingLevel;
 import cz.cyberrange.platform.training.persistence.model.TrainingRun;
 import cz.cyberrange.platform.training.persistence.model.question.QuestionAnswer;
 import cz.cyberrange.platform.training.persistence.repository.*;
+import cz.cyberrange.platform.training.service.tenancy.TenantScope;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -38,6 +39,7 @@ public class ExportImportService {
     private final AccessLevelRepository accessLevelRepository;
     private final TrainingInstanceRepository trainingInstanceRepository;
     private final TrainingRunRepository trainingRunRepository;
+    private TenantScope tenantScope = new TenantScope();
 
     /**
      * Instantiates a new Export import service.
@@ -82,9 +84,16 @@ public class ExportImportService {
      * @throws EntityNotFoundException if training definition was not found.
      */
     public TrainingDefinition findById(Long trainingDefinitionId) {
-        return trainingDefinitionRepository.findById(trainingDefinitionId)
+        TrainingDefinition trainingDefinition = trainingDefinitionRepository.findById(trainingDefinitionId)
                 .orElseThrow(() -> new EntityNotFoundException(new EntityErrorDetail(TrainingDefinition.class, "id", trainingDefinitionId.getClass(),
                         trainingDefinitionId)));
+        tenantScope.checkReadable(trainingDefinition.getTenantKey(), TrainingDefinition.class, trainingDefinitionId);
+        return trainingDefinition;
+    }
+
+    @Autowired
+    public void setTenantScope(TenantScope tenantScope) {
+        this.tenantScope = tenantScope;
     }
 
     /**
@@ -127,9 +136,11 @@ public class ExportImportService {
      * @throws EntityNotFoundException if training instance was not found.
      */
     public TrainingInstance findInstanceById(Long trainingInstanceId) {
-        return trainingInstanceRepository.findById(trainingInstanceId)
+        TrainingInstance trainingInstance = trainingInstanceRepository.findById(trainingInstanceId)
                 .orElseThrow(() -> new EntityNotFoundException(new EntityErrorDetail(TrainingInstance.class, "id", trainingInstanceId.getClass(),
                         trainingInstanceId)));
+        tenantScope.checkReadable(trainingInstance.getTenantKey(), TrainingInstance.class, trainingInstanceId);
+        return trainingInstance;
     }
 
     /**
@@ -139,6 +150,8 @@ public class ExportImportService {
      * @return the set off all {@link TrainingRun}
      */
     public Set<TrainingRun> findRunsByInstanceId(Long trainingInstanceId) {
+        trainingInstanceRepository.findById(trainingInstanceId)
+                .ifPresent(instance -> tenantScope.checkReadable(instance.getTenantKey(), TrainingInstance.class, trainingInstanceId));
         return trainingRunRepository.findAllByTrainingInstanceId(trainingInstanceId);
     }
 

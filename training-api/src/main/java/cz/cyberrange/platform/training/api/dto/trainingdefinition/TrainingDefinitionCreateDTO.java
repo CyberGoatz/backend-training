@@ -39,4 +39,6 @@ public class TrainingDefinitionCreateDTO {
     private BetaTestingGroupCreateDTO betaTestingGroup;
     @ApiModelProperty(value = "Sign if default levels should be created.", example = "false")
     private boolean defaultContent;
+    @ApiModelProperty(value = "Tenant (organization alias) to own the new row. Honored only for administrators whose token has no organization claim; for tenant callers the tenant comes from the token and this field is ignored.", example = "vit")
+    private String tenantKey;
 }

@@ -47,4 +47,8 @@ public class TrainingInstanceFindAllResponseDTO {
     private boolean showStepperBar;
     @ApiModelProperty(value = "Indicates if trainee can during training run move to the previous already solved levels.", example = "true")
     private boolean backwardMode;
+    @ApiModelProperty(value = "Id of the user-and-group group whose members may start training runs. When set, the access token alone is not enough.", example = "12")
+    private Long allowedGroupId;
+    @ApiModelProperty(value = "Tenant (organization alias) that owns this row; null for the global library. Read-only.", example = "vit")
+    private String tenantKey;
 }
